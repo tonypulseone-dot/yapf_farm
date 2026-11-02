@@ -4,6 +4,8 @@ import asyncio
 import os
 import psutil
 import time
+import subprocess
+import shutil
 from datetime import datetime
 from fastapi import FastAPI, Request, Form
 from fastapi.middleware.gzip import GZipMiddleware
@@ -293,3 +295,38 @@ async def test_telegram_alert_api():
         custom_chat_id=cid
     )
     return res
+
+@app.get("/api/system/version")
+async def get_system_version():
+    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    git_bin = shutil.which("git") or (r"C:\Program Files\Git\cmd\git.exe" if os.path.exists(r"C:\Program Files\Git\cmd\git.exe") else None)
+    commit = "release"
+    if git_bin and os.path.exists(os.path.join(app_dir, ".git")):
+        try:
+            commit = subprocess.check_output([git_bin, "-C", app_dir, "rev-parse", "--short", "HEAD"], text=True, timeout=3).strip()
+        except Exception:
+            pass
+    return {"commit": commit, "repo": "https://github.com/tonypulseone-dot/yapf_farm"}
+
+@app.post("/api/system/update")
+async def system_update():
+    app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    git_bin = shutil.which("git") or (r"C:\Program Files\Git\cmd\git.exe" if os.path.exists(r"C:\Program Files\Git\cmd\git.exe") else None)
+    if not git_bin:
+        return {"status": "error", "message": "Git не найден в системе"}
+
+    try:
+        subprocess.run([git_bin, "-C", app_dir, "fetch", "origin", "main"], check=True, capture_output=True, text=True, timeout=10)
+        local_h = subprocess.check_output([git_bin, "-C", app_dir, "rev-parse", "HEAD"], text=True, timeout=5).strip()
+        remote_h = subprocess.check_output([git_bin, "-C", app_dir, "rev-parse", "origin/main"], text=True, timeout=5).strip()
+
+        if local_h == remote_h:
+            return {"status": "up_to_date", "commit": local_h[:7], "message": f"Установлена актуальная версия ({local_h[:7]}). Обновлений нет."}
+
+        pull_res = subprocess.run([git_bin, "-C", app_dir, "pull", "--ff-only", "origin", "main"], capture_output=True, text=True, timeout=15)
+        if pull_res.returncode == 0:
+            return {"status": "updated", "from": local_h[:7], "to": remote_h[:7], "message": f"Система успешно обновлена с GitHub ({local_h[:7]} ➔ {remote_h[:7]})!"}
+        else:
+            return {"status": "error", "message": f"Ошибка git pull: {pull_res.stderr}"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

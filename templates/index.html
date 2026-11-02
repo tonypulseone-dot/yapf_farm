@@ -546,6 +546,9 @@
                 <button @click="settingsSubTab = 'telegram'" :class="settingsSubTab === 'telegram' ? 'text-blue-400 border-b-2 border-blue-500 pb-2.5' : 'text-slate-400 hover:text-slate-200 pb-2.5'" class="flex items-center gap-2 whitespace-nowrap px-1 transition">
                     <i class="fa-brands fa-telegram text-sky-400"></i> Telegram & Отчеты
                 </button>
+                <button @click="settingsSubTab = 'updates'" :class="settingsSubTab === 'updates' ? 'text-blue-400 border-b-2 border-blue-500 pb-2.5' : 'text-slate-400 hover:text-slate-200 pb-2.5'" class="flex items-center gap-2 whitespace-nowrap px-1 transition">
+                    <i class="fa-brands fa-github text-slate-300"></i> Обновления & GitHub
+                </button>
             </div>
 
             <!-- SUB-TAB 1: CAPTCHA -->
@@ -1127,6 +1130,63 @@
                     </div>
                 </div>
             </div>
+
+            <!-- SUB-TAB 7: UPDATES & GITHUB -->
+            <div x-show="settingsSubTab === 'updates'" class="space-y-6" x-cloak>
+                <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-5 sm:p-6 space-y-6">
+                    <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center text-white text-2xl shadow-md">
+                                <i class="fa-brands fa-github"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-base text-white flex items-center gap-2">
+                                    Автоматические обновления с GitHub
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-mono font-semibold">ACTIVE</span>
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">Служба автоматически проверяет и накатывает обновления перед каждым запуском run.py</p>
+                            </div>
+                        </div>
+                        <a href="https://github.com/tonypulseone-dot/yapf_farm" target="_blank" class="px-3.5 py-2 bg-dark-950 hover:bg-dark-850 border border-slate-700 rounded-xl text-xs font-semibold text-slate-200 flex items-center gap-2 transition w-fit">
+                            <i class="fa-brands fa-github text-sm"></i>
+                            <span>tonypulseone-dot/yapf_farm</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-slate-400"></i>
+                        </a>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-dark-950 border border-slate-800 rounded-xl p-4 space-y-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Текущая версия (коммит)</span>
+                            <div class="font-mono text-lg font-bold text-blue-400" x-text="systemVersion.commit || 'Загрузка...'"></div>
+                            <p class="text-[11px] text-slate-400">Ветка: main</p>
+                        </div>
+                        <div class="bg-dark-950 border border-slate-800 rounded-xl p-4 space-y-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Режим обновления</span>
+                            <div class="text-sm font-bold text-emerald-400 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Автономный
+                            </div>
+                            <p class="text-[11px] text-slate-400">Проверка при старте run.py</p>
+                        </div>
+                        <div class="bg-dark-950 border border-slate-800 rounded-xl p-4 space-y-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-400">Источник синхронизации</span>
+                            <div class="text-sm font-bold text-slate-200 truncate">GitHub / main</div>
+                            <p class="text-[11px] text-slate-400">git pull --ff-only origin main</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-dark-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                        <h4 class="font-bold text-xs uppercase text-slate-300 tracking-wider">Принудительная проверка обновлений</h4>
+                        <p class="text-xs text-slate-400">Вы можете проверить наличие новой версии на GitHub прямо сейчас без перезапуска сервера.</p>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <button @click="checkSystemUpdate()" :disabled="updatingSystem" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold text-xs transition flex items-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 disabled:opacity-50">
+                                <i :class="updatingSystem ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-rotate'"></i>
+                                <span x-text="updatingSystem ? 'Проверка репозитория...' : 'Проверить и обновить с GitHub'"></span>
+                            </button>
+                            <span x-show="updateResult" class="text-xs font-semibold px-3 py-1.5 rounded-lg border" :class="updateResultStatus === 'updated' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : (updateResultStatus === 'up_to_date' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/30')" x-text="updateResult"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- ========================================== -->
@@ -1704,6 +1764,10 @@
                 lastUpdate: '',
                 tgTesting: false,
                 tgResult: '',
+                systemVersion: { commit: '', repo: '' },
+                updatingSystem: false,
+                updateResult: '',
+                updateResultStatus: '',
                 settingsSubTab: 'captcha',
                 saveStatusMsg: '',
                 tgStatus: { is_linked: false, username: '', chat_id: '' },
@@ -1854,13 +1918,42 @@
                         this.loadProjects(),
                         this.loadLogs(),
                         this.loadSettings(),
-                        this.checkTgStatus()
+                        this.checkTgStatus(),
+                        this.loadSystemVersion()
                     ]);
 
                     // Poll status every 3.5s
                     setInterval(() => {
                         this.loadStatus();
                     }, 3500);
+                },
+
+                async loadSystemVersion() {
+                    try {
+                        const res = await fetch('/api/system/version');
+                        if (res.ok) {
+                            this.systemVersion = await res.json();
+                        }
+                    } catch(e) {}
+                },
+
+                async checkSystemUpdate() {
+                    this.updatingSystem = true;
+                    this.updateResult = '';
+                    try {
+                        const res = await fetch('/api/system/update', { method: 'POST' });
+                        const data = await res.json();
+                        this.updateResultStatus = data.status;
+                        this.updateResult = data.message;
+                        if (data.status === 'updated') {
+                            await this.loadSystemVersion();
+                        }
+                    } catch(e) {
+                        this.updateResultStatus = 'error';
+                        this.updateResult = 'Ошибка связи с сервером при обновлении';
+                    } finally {
+                        this.updatingSystem = false;
+                    }
                 },
 
                 async loadStatus() {
