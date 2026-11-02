@@ -24,21 +24,40 @@ async def run_promotion_click(page, keyword_item, profile_name):
     logger.info(f"[{profile_name}] PROMO START: key='{keyword}', target='{domain}', region={region}")
     live_logger.add("PROMO", profile_name, f"Старт ПФ: запрос «{keyword}» для домена {domain} (регион {region})")
     
-    # 1. Search in Yandex with region
+    # 1. Search in Yandex with region (retry on transient proxy errors)
     search_url = f"https://ya.ru/search/?text={quote_plus(keyword)}&lr={region}"
-    try:
-        live_logger.add("PROMO", profile_name, f"Открытие поисковой выдачи: {keyword}")
-        await page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
-        await asyncio.sleep(random.uniform(2.0, 4.0))
-    except Exception as e:
-        live_logger.add("ERROR", profile_name, f"Ошибка загрузки поисковой выдачи: {str(e)[:100]}")
-        return {"status": "error", "position": 0, "details": f"Search page error: {e}"}
+    loaded = False
+    for attempt in range(1, 3):
+        try:
+            attempt_str = f" (попытка {attempt}/2)" if attempt > 1 else ""
+            live_logger.add("PROMO", profile_name, f"Открытие поисковой выдачи: {keyword}{attempt_str}")
+            await page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
+            await asyncio.sleep(random.uniform(2.0, 4.0))
+            loaded = True
+            break
+        except Exception as e:
+            err_str = str(e)
+            if attempt < 2 and any(k in err_str for k in ["ERR_TUNNEL", "ERR_PROXY", "Timeout", "ERR_CONNECTION", "reset"]):
+                live_logger.add("WARN", profile_name, f"Временный сбой прокси при поиске: пауза 2.5с и повторное переподключение...")
+                await asyncio.sleep(2.5)
+            else:
+                live_logger.add("ERROR", profile_name, f"Ошибка загрузки поисковой выдачи: {err_str[:90]}")
+                return {"status": "error", "position": 0, "details": f"Search page error: {e}"}
+
+    if not loaded:
+        return {"status": "error", "position": 0, "details": "Search page failed to load"}
 
     # Check for captcha
-    if "showcaptcha" in page.url or await page.query_selector("form.CheckboxCaptcha, input.CheckboxCaptcha-Button"):
+    if "showcaptcha" in page.url or await page.query_selector("form.CheckboxCaptcha, input.CheckboxCaptcha-Button, #smartcaptcha-anchor"):
         logger.warning(f"[{profile_name}] Captcha detected on Yandex SERP!")
-        live_logger.add("WARN", profile_name, "Обнаружена SmartCaptcha при поиске, требуется подтверждение")
-        return {"status": "captcha", "position": 0, "details": "Captcha on search"}
+        live_logger.add("WARN", profile_name, "Обнаружена SmartCaptcha при поиске, попытка авто-клика...")
+        from app.engine.captcha import handle_yandex_checkbox_captcha
+        if await handle_yandex_checkbox_captcha(page):
+            live_logger.add("SUCCESS", profile_name, "SmartCaptcha пройдена кликом, продолжаем сканирование!")
+            await asyncio.sleep(2.5)
+        else:
+            live_logger.add("WARN", profile_name, "SmartCaptcha требует ручного решения или ключа сервиса")
+            return {"status": "captcha", "position": 0, "details": "Captcha on search"}
 
     target_found = False
     position_found = 0
@@ -81,11 +100,13 @@ async def run_promotion_click(page, keyword_item, profile_name):
                 start_dwell = asyncio.get_event_loop().time()
                 
                 while asyncio.get_event_loop().time() - start_dwell < dwell_time:
+                    if site_page.is_closed():
+                        break
                     await human_scroll(site_page, random.randint(300, 700))
                     await asyncio.sleep(random.uniform(3.0, 7.0))
                     
                     # 40% chance to click internal link
-                    if random.random() < 0.4:
+                    if random.random() < 0.4 and not site_page.is_closed():
                         int_links = await site_page.query_selector_all(f"a[href*='{domain}']")
                         if int_links:
                             rand_link = random.choice(int_links[:5])
@@ -96,7 +117,8 @@ async def run_promotion_click(page, keyword_item, profile_name):
                             except Exception:
                                 pass
                                 
-                await site_page.close()
+                if not site_page.is_closed():
+                    await site_page.close()
                 live_logger.add("SUCCESS", profile_name, f"Сессия ПФ успешно завершена: {domain} #{position_found}")
                 return {"status": "success", "position": position_found, "details": f"Page {page_num}, Pos {position_found}"}
 

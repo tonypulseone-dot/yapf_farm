@@ -37,28 +37,61 @@ async def run_warming_cycle(page, profile_id, profile_name):
     logger.info(f"[{profile_name}] Starting warming cycle with query: '{query}'")
     live_logger.add("WARM", profile_name, f"Старт цикла нагула: запрос «{query}»")
     
-    # 1. Open Yandex
-    try:
-        live_logger.add("WARM", profile_name, "Открытие поисковой системы https://ya.ru...")
-        await page.goto("https://ya.ru", wait_until="domcontentloaded", timeout=30000)
-        await asyncio.sleep(random.uniform(1.5, 3.0))
-    except Exception as e:
-        logger.warning(f"[{profile_name}] Failed to load ya.ru: {e}")
-        live_logger.add("ERROR", profile_name, f"Ошибка загрузки ya.ru: {str(e)[:100]}")
+    # 1. Open Yandex with proxy resilience (retry on transient tunnel blips)
+    loaded = False
+    for attempt in range(1, 3):
+        try:
+            attempt_str = f" (попытка {attempt}/2)" if attempt > 1 else ""
+            live_logger.add("WARM", profile_name, f"Открытие поисковой системы https://ya.ru...{attempt_str}")
+            await page.goto("https://ya.ru", wait_until="domcontentloaded", timeout=30000)
+            await asyncio.sleep(random.uniform(1.5, 3.0))
+            loaded = True
+            break
+        except Exception as e:
+            err_str = str(e)
+            if attempt < 2 and any(k in err_str for k in ["ERR_TUNNEL", "ERR_PROXY", "Timeout", "ERR_CONNECTION", "reset"]):
+                live_logger.add("WARN", profile_name, f"Временный сбой прокси ya.ru: пауза 2.5с и повторное переподключение...")
+                await asyncio.sleep(2.5)
+            else:
+                logger.warning(f"[{profile_name}] Failed to load ya.ru: {e}")
+                live_logger.add("ERROR", profile_name, f"Ошибка загрузки ya.ru: {err_str[:90]}")
+                return False
+
+    if not loaded:
         return False
     
-    # 2. Find search input and type
+    # 2. Check for SmartCaptcha or find search input
     search_input = "input[name='text'], textarea[name='text']"
     try:
+        # Check if Yandex showed SmartCaptcha right away
+        if "showcaptcha" in page.url or await page.query_selector(".CheckboxCaptcha, #smartcaptcha-anchor"):
+            live_logger.add("WARN", profile_name, "Обнаружена SmartCaptcha, попытка автоматического подтверждения...")
+            from app.engine.captcha import handle_yandex_checkbox_captcha
+            if await handle_yandex_checkbox_captcha(page):
+                live_logger.add("SUCCESS", profile_name, "SmartCaptcha успешно пройдена кликом!")
+                await asyncio.sleep(2.0)
+
         await page.wait_for_selector(search_input, timeout=10000)
         live_logger.add("WARM", profile_name, f"Ввод запроса «{query}» (эмуляция набора человека с задержками)")
         await human_type(page, search_input, query)
         await page.keyboard.press("Enter")
         await page.wait_for_load_state("domcontentloaded", timeout=20000)
     except Exception as e:
-        logger.warning(f"[{profile_name}] Search input failed: {e}")
-        live_logger.add("WARN", profile_name, f"Не удалось ввести запрос: {str(e)[:100]}")
-        return False
+        # Fallback check for captcha if input was blocked
+        from app.engine.captcha import handle_yandex_checkbox_captcha
+        if await handle_yandex_checkbox_captcha(page):
+            live_logger.add("SUCCESS", profile_name, "SmartCaptcha пройдена после ожидания формы ввода!")
+            try:
+                await page.wait_for_selector(search_input, timeout=8000)
+                await human_type(page, search_input, query)
+                await page.keyboard.press("Enter")
+                await page.wait_for_load_state("domcontentloaded", timeout=20000)
+            except Exception:
+                return False
+        else:
+            logger.warning(f"[{profile_name}] Search input failed: {e}")
+            live_logger.add("WARN", profile_name, f"Не удалось ввести запрос: {str(e)[:100]}")
+            return False
         
     # 3. Spend 8-12 seconds in SERP
     serp_time = random.uniform(8.0, 12.0)
@@ -98,18 +131,24 @@ async def run_warming_cycle(page, profile_id, profile_name):
 
     # 5. Browse the target site for 20-40 seconds
     try:
-        await site_page.wait_for_load_state("domcontentloaded", timeout=15000)
-        browse_time = random.uniform(20.0, 40.0)
-        start_browse = asyncio.get_event_loop().time()
-        logger.info(f"[{profile_name}] Browsing warmed site for {int(browse_time)}s...")
-        live_logger.add("WARM", profile_name, f"Серфинг по сайту: чтение, скроллинг {int(browse_time)}с (нагул поведенческого фактора)")
-        
-        while asyncio.get_event_loop().time() - start_browse < browse_time:
-            await human_scroll(site_page, random.randint(200, 600))
-            await asyncio.sleep(random.uniform(2.0, 5.0))
+        if site_page.is_closed():
+            site_page = page
+
+        if not site_page.is_closed():
+            await site_page.wait_for_load_state("domcontentloaded", timeout=15000)
+            browse_time = random.uniform(20.0, 40.0)
+            start_browse = asyncio.get_event_loop().time()
+            logger.info(f"[{profile_name}] Browsing warmed site for {int(browse_time)}s...")
+            live_logger.add("WARM", profile_name, f"Серфинг по сайту: чтение, скроллинг {int(browse_time)}с (нагул поведенческого фактора)")
             
-        if site_page != page:
-            await site_page.close()
+            while asyncio.get_event_loop().time() - start_browse < browse_time:
+                if site_page.is_closed():
+                    break
+                await human_scroll(site_page, random.randint(200, 600))
+                await asyncio.sleep(random.uniform(2.0, 5.0))
+                
+            if site_page != page and not site_page.is_closed():
+                await site_page.close()
     except Exception as e:
         logger.debug(f"[{profile_name}] Site browsing interrupted: {e}")
 

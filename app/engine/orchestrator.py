@@ -268,57 +268,72 @@ class TaskOrchestrator:
                 
                 if task_type == "promo":
                     self.stats["promo_active"] += 1
-                    self.stats["last_log"] = f"[{profile['name']}] Клики ПФ: {keyword_task['domain']} -> '{keyword_task['keyword']}'"
-                    res = await run_promotion_click(page, keyword_task, profile["name"])
-                    
-                    conn = get_db()
-                    c = conn.cursor()
-                    c.execute("""
-                        INSERT INTO click_logs (keyword, target_url, domain, profile_name, device, region, position_found, status, details)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, (keyword_task["keyword"], keyword_task["target_url"] or "", keyword_task["domain"],
-                          profile["name"], profile["device_type"], keyword_task.get("geo_region", "213"),
-                          res["position"], res["status"], res["details"]))
-                    
-                    if res["status"] == "success":
-                        c.execute("UPDATE keywords SET clicks_today = clicks_today + 1, last_click_at = CURRENT_TIMESTAMP WHERE id = ?", (keyword_task["id"],))
-                        c.execute("UPDATE profiles SET total_clicks = total_clicks + 1, last_used_at = CURRENT_TIMESTAMP, status = 'warming' WHERE id = ?", (profile["id"],))
-                        asyncio.create_task(notify_click_success(
-                            domain=keyword_task["domain"],
-                            keyword=keyword_task["keyword"],
-                            position=res.get("position", 0),
-                            profile_name=profile["name"],
-                            device=profile.get("device_type", "desktop")
-                        ))
-                    elif res["status"] == "captcha":
-                        asyncio.create_task(notify_captcha(
-                            keyword=keyword_task["keyword"],
-                            domain=keyword_task["domain"],
-                            solved=False
-                        ))
-                    conn.commit()
-                    conn.close()
-                    self.stats["promo_active"] -= 1
+                    try:
+                        self.stats["last_log"] = f"[{profile['name']}] Клики ПФ: {keyword_task['domain']} -> '{keyword_task['keyword']}'"
+                        res = await run_promotion_click(page, keyword_task, profile["name"])
+                        
+                        conn = get_db()
+                        c = conn.cursor()
+                        c.execute("""
+                            INSERT INTO click_logs (keyword, target_url, domain, profile_name, device, region, position_found, status, details)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (keyword_task["keyword"], keyword_task["target_url"] or "", keyword_task["domain"],
+                              profile["name"], profile["device_type"], keyword_task.get("geo_region", "213"),
+                              res["position"], res["status"], res["details"]))
+                        
+                        if res["status"] == "success":
+                            c.execute("UPDATE keywords SET clicks_today = clicks_today + 1, last_click_at = CURRENT_TIMESTAMP WHERE id = ?", (keyword_task["id"],))
+                            c.execute("UPDATE profiles SET total_clicks = total_clicks + 1, last_used_at = CURRENT_TIMESTAMP, status = 'warming' WHERE id = ?", (profile["id"],))
+                            asyncio.create_task(notify_click_success(
+                                domain=keyword_task["domain"],
+                                keyword=keyword_task["keyword"],
+                                position=res.get("position", 0),
+                                profile_name=profile["name"],
+                                device=profile.get("device_type", "desktop")
+                            ))
+                        elif res["status"] == "captcha":
+                            asyncio.create_task(notify_captcha(
+                                keyword=keyword_task["keyword"],
+                                domain=keyword_task["domain"],
+                                solved=False
+                            ))
+                        conn.commit()
+                        conn.close()
+                    finally:
+                        self.stats["promo_active"] = max(0, self.stats["promo_active"] - 1)
 
                 else:
                     self.stats["warming_active"] += 1
-                    self.stats["last_log"] = f"[{profile['name']}] Нагул профиля (цикл #{profile['cycles_completed'] + 1})"
-                    ok = await run_warming_cycle(page, profile["id"], profile["name"])
-                    
-                    conn = get_db()
-                    c = conn.cursor()
-                    c.execute("""
-                        UPDATE profiles 
-                        SET cycles_completed = cycles_completed + 1, 
-                            last_warmed_at = CURRENT_TIMESTAMP, 
-                            status = 'warming'
-                        WHERE id = ?
-                    """, (profile["id"],))
-                    conn.commit()
-                    conn.close()
-                    self.stats["warming_active"] -= 1
+                    try:
+                        self.stats["last_log"] = f"[{profile['name']}] Нагул профиля (цикл #{profile['cycles_completed'] + 1})"
+                        ok = await run_warming_cycle(page, profile["id"], profile["name"])
+                        
+                        conn = get_db()
+                        c = conn.cursor()
+                        if ok:
+                            c.execute("""
+                                UPDATE profiles 
+                                SET cycles_completed = cycles_completed + 1, 
+                                    last_warmed_at = CURRENT_TIMESTAMP, 
+                                    status = 'warming'
+                                WHERE id = ?
+                            """, (profile["id"],))
+                        else:
+                            c.execute("""
+                                UPDATE profiles 
+                                SET last_warmed_at = CURRENT_TIMESTAMP, 
+                                    status = 'warming'
+                                WHERE id = ?
+                            """, (profile["id"],))
+                        conn.commit()
+                        conn.close()
+                    finally:
+                        self.stats["warming_active"] = max(0, self.stats["warming_active"] - 1)
 
-                await context.close()
+                try:
+                    await context.close()
+                except Exception:
+                    pass
                 live_logger.add("INFO", profile["name"], f"Браузерная сессия закрыта, профиль сохранен (цикл завершен)")
 
         except Exception as e:

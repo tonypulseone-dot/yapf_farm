@@ -31,15 +31,17 @@ class LiveLogBuffer:
 
     def get_since(self, since_id: int = 0, limit: int = 150, filter_level: str = None):
         with self.lock:
-            if since_id == 0:
-                items = list(self.buffer)[-limit:]
+            all_items = list(self.buffer)
+            if since_id > 0:
+                items = [item for item in all_items if item["id"] > since_id]
             else:
-                items = [item for item in self.buffer if item["id"] > since_id]
-                if limit and len(items) > limit:
-                    items = items[-limit:]
+                items = all_items
             
             if filter_level and filter_level not in ["ALL", ""]:
                 items = [item for item in items if item["level"] == filter_level.upper()]
+            
+            if limit and len(items) > limit:
+                items = items[-limit:]
             
             last_id = self.buffer[-1]["id"] if self.buffer else since_id
             return {

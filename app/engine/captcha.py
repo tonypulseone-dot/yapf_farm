@@ -158,25 +158,42 @@ async def handle_yandex_checkbox_captcha(page) -> bool:
     """
     Detects and clicks the Yandex Checkbox / SmartCaptcha.
     Applies humanized delays and coordinate distortion if configured.
+    Searches both main DOM and child frames.
     """
     try:
-        # Check if smartcaptcha iframe or checkbox exists
-        checkbox = await page.query_selector("input.CheckboxCaptcha-Button, .CheckboxCaptcha-Anchor, #smartcaptcha-anchor")
+        selectors = "input.CheckboxCaptcha-Button, .CheckboxCaptcha-Anchor, #smartcaptcha-anchor, .CheckboxCaptcha, button.CheckboxCaptcha-Button, input[type='checkbox']"
+        
+        checkbox = await page.query_selector(selectors)
+        target_context = page
+        
+        if not checkbox:
+            for frame in page.frames:
+                checkbox = await frame.query_selector(selectors)
+                if checkbox:
+                    target_context = frame
+                    break
+                    
         if checkbox:
             distort = get_setting("captcha_distort_coords", "1") == "1"
-            box = await checkbox.bounding_box()
-            if box:
-                target_x = box["x"] + box["width"] / 2
-                target_y = box["y"] + box["height"] / 2
-                if distort:
-                    target_x += random.uniform(-4, 4)
-                    target_y += random.uniform(-4, 4)
+            try:
+                box = await checkbox.bounding_box()
+                if box and box.get("width", 0) > 0 and box.get("height", 0) > 0:
+                    target_x = box["x"] + box["width"] / 2
+                    target_y = box["y"] + box["height"] / 2
+                    if distort:
+                        target_x += random.uniform(-3, 3)
+                        target_y += random.uniform(-3, 3)
+                    
+                    await page.mouse.move(target_x, target_y, steps=random.randint(6, 12))
+                    await asyncio.sleep(random.uniform(0.3, 0.6))
+                    await page.mouse.click(target_x, target_y)
+                else:
+                    await checkbox.click(timeout=3000)
+            except Exception:
+                await checkbox.click(timeout=3000)
                 
-                await page.mouse.move(target_x, target_y, steps=random.randint(7, 14))
-                await asyncio.sleep(random.uniform(0.3, 0.7))
-                await page.mouse.click(target_x, target_y)
-                await asyncio.sleep(random.uniform(2.0, 3.5))
-                return True
+            await asyncio.sleep(random.uniform(2.5, 4.0))
+            return True
     except Exception as e:
         logger.warning(f"Checkbox captcha handling error: {e}")
     return False
