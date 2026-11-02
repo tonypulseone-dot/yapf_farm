@@ -31,6 +31,15 @@ if [ ! -d ".venv" ]; then
     python3 -m venv .venv
 fi
 
+if [ ! -d "$APP_DIR/.git" ]; then
+    echo "[*] Linking directory to GitHub repository..."
+    git -C "$APP_DIR" init -b main || true
+    git -C "$APP_DIR" remote add origin https://github.com/tonypulseone-dot/yapf_farm.git || true
+    git -C "$APP_DIR" fetch origin || true
+    git -C "$APP_DIR" reset origin/main || true
+    git -C "$APP_DIR" branch --set-upstream-to=origin/main main || true
+fi
+
 echo "[*] Installing dependencies..."
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
