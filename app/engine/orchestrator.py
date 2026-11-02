@@ -38,14 +38,47 @@ class TaskOrchestrator:
         }
         os.makedirs(BASE_PROFILES_DIR, exist_ok=True)
 
+    def _create_new_profile_sync(self, conn, total_profiles, target_count):
+        """Helper to create and persist a new profile with fingerprint and proxy."""
+        c = conn.cursor()
+        prof_name = f"prof_{total_profiles + 1}_{random.randint(1000, 9999)}"
+        prof_dir = os.path.join(BASE_PROFILES_DIR, prof_name)
+        os.makedirs(prof_dir, exist_ok=True)
+        
+        # 75% desktop, 25% android
+        dtype = "android" if random.random() < 0.25 else "desktop"
+        fp = generate_fingerprint(device_type=dtype)
+        
+        # Pick next unused proxy from pool, or random if all in use
+        proxy_lines = [p.strip() for p in get_setting("proxy_list", "").split("\n") if p.strip()]
+        c.execute("SELECT proxy FROM profiles WHERE proxy IS NOT NULL")
+        used_proxies = {r["proxy"] for r in c.fetchall()}
+        avail_proxies = [p for p in proxy_lines if p not in used_proxies]
+        chosen_proxy = avail_proxies[0] if avail_proxies else (random.choice(proxy_lines) if proxy_lines else None)
+        
+        c.execute("""
+            INSERT INTO profiles (name, user_data_dir, fingerprint, status, device_type, proxy, created_at)
+            VALUES (?, ?, ?, 'new', ?, ?, CURRENT_TIMESTAMP)
+        """, (prof_name, prof_dir, json.dumps(fp), dtype, chosen_proxy))
+        conn.commit()
+        
+        c.execute("SELECT * FROM profiles WHERE name = ?", (prof_name,))
+        new_prof = dict(c.fetchone())
+        conn.close()
+        
+        port_label = chosen_proxy.split(':')[1] if chosen_proxy and ':' in chosen_proxy else 'N/A'
+        live_logger.add("INFO", "orchestrator", f"База расширена: создан профиль [{prof_name}] (#{total_profiles + 1}/{target_count}, порт :{port_label})")
+        return new_prof
+
     async def get_or_create_profile(self, target_status="ready"):
         """
         Intelligently selects a profile or expands the pool:
         1. Checks profiles ready for graduation to 'ready' (native SQLite datetime).
         2. If promo needed, returns oldest ready profile.
-        3. For warming: enforces realistic human resting interval (cooldown) between warming cycles.
-        4. If all current profiles are in cooldown and target pool size is not reached, creates a NEW profile.
-        5. Automatically binds each profile to its own unique proxy from the pool.
+        3. If pool size is below target_profiles_count, smoothly introduces new profiles (~30% of worker tasks).
+        4. For warming: enforces realistic human resting interval (cooldown) between warming cycles.
+        5. If all current profiles are in cooldown and target pool size is not reached, creates a NEW profile.
+        6. Automatically binds each profile to its own unique proxy from the pool.
         """
         conn = get_db()
         c = conn.cursor()
@@ -81,10 +114,15 @@ class TaskOrchestrator:
         # 3. Target profile pool limit and resting cooldown
         c.execute("SELECT COUNT(*) as cnt FROM profiles")
         total_profiles = c.fetchone()["cnt"]
-        target_count = int(get_setting("target_profiles_count", "300"))
+        target_count = int(get_setting("target_profiles_count", "3000"))
         cooldown_min = str(get_setting("profile_warming_cooldown_min", "15"))
 
-        # Check for an available profile whose cooldown has passed (native SQLite datetime calculation)
+        # 4. If pool size is below target_count, smoothly introduce new profiles (30% of worker tasks)
+        # This prevents the pool from stalling when cycle time matches cooldown!
+        if total_profiles < target_count and random.random() < 0.30:
+            return self._create_new_profile_sync(conn, total_profiles, target_count)
+
+        # 5. Check for an available profile whose cooldown has passed (native SQLite datetime calculation)
         query = f"""
             SELECT * FROM profiles 
             WHERE status IN ('new', 'warming') 
@@ -100,39 +138,12 @@ class TaskOrchestrator:
             conn.close()
             return dict(row)
 
-        # 4. If no cooled-down profile exists AND total_profiles < target_count:
+        # 6. If no cooled-down profile exists AND total_profiles < target_count:
         # Expand the farm by creating a brand new profile!
         if total_profiles < target_count:
-            prof_name = f"prof_{total_profiles + 1}_{random.randint(1000, 9999)}"
-            prof_dir = os.path.join(BASE_PROFILES_DIR, prof_name)
-            os.makedirs(prof_dir, exist_ok=True)
-            
-            # 75% desktop, 25% android
-            dtype = "android" if random.random() < 0.25 else "desktop"
-            fp = generate_fingerprint(device_type=dtype)
-            
-            # Pick next unused proxy from pool
-            proxy_lines = [p.strip() for p in get_setting("proxy_list", "").split("\n") if p.strip()]
-            c.execute("SELECT proxy FROM profiles WHERE proxy IS NOT NULL")
-            used_proxies = {r["proxy"] for r in c.fetchall()}
-            avail_proxies = [p for p in proxy_lines if p not in used_proxies]
-            chosen_proxy = avail_proxies[0] if avail_proxies else (random.choice(proxy_lines) if proxy_lines else None)
-            
-            c.execute("""
-                INSERT INTO profiles (name, user_data_dir, fingerprint, status, device_type, proxy, created_at)
-                VALUES (?, ?, ?, 'new', ?, ?, CURRENT_TIMESTAMP)
-            """, (prof_name, prof_dir, json.dumps(fp), dtype, chosen_proxy))
-            conn.commit()
-            
-            c.execute("SELECT * FROM profiles WHERE name = ?", (prof_name,))
-            new_prof = dict(c.fetchone())
-            conn.close()
-            
-            port_label = chosen_proxy.split(':')[1] if chosen_proxy and ':' in chosen_proxy else 'N/A'
-            live_logger.add("INFO", "orchestrator", f"База расширена: создан профиль [{prof_name}] (#{total_profiles + 1}/{target_count}, порт :{port_label})")
-            return new_prof
+            return self._create_new_profile_sync(conn, total_profiles, target_count)
 
-        # 5. If reached target pool size and all are in cooldown, pick the oldest warmed profile
+        # 7. If reached target pool size and all are in cooldown, pick the oldest warmed profile
         query = f"""
             SELECT * FROM profiles 
             WHERE status IN ('new', 'warming') AND id NOT IN ({placeholders})
