@@ -42,7 +42,7 @@ async def resolve_target_chat_id() -> str:
 
     return ""
 
-async def send_telegram_alert(text: str, custom_chat_id: str = None) -> dict:
+async def send_telegram_alert(text: str, custom_chat_id: str = None, reply_markup: dict = None) -> dict:
     """
     Sends an alert message to configured Telegram bot chat or specified username.
     """
@@ -68,6 +68,8 @@ async def send_telegram_alert(text: str, custom_chat_id: str = None) -> dict:
         "parse_mode": "HTML",
         "disable_web_page_preview": True
     }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
 
     try:
         data = json.dumps(payload).encode("utf-8")
@@ -232,23 +234,51 @@ async def telegram_bot_polling_loop():
                         if username:
                             set_setting("telegram_username", username)
 
-                    # Command handler
-                    if text.startswith("/start"):
-                        user_display = f"@{username}" if username else first_name
-                        welcome_text = (
-                            f"👋 <b>Добро пожаловать в бота управления YAPF_Farm!</b>\n\n"
-                            f"Ваш Telegram логин: <b>{user_display}</b>\n"
-                            f"Ваш Chat ID: <code>{chat_id}</code>\n\n"
-                            f"✅ <b>Аккаунт успешно привязан!</b> Сюда будут приходить суточные отчёты и алерты фермы.\n\n"
-                            f"<b>Доступные команды:</b>\n"
-                            f"📊 /status — Текущее состояние серверов и потоков\n"
-                            f"📈 /report — Запросить суточный отчёт сейчас\n"
-                            f"🟢 /start_farm — Запустить службу фермы\n"
-                            f"⏸ /stop_farm — Приостановить службу фермы"
-                        )
-                        await send_telegram_alert(welcome_text, custom_chat_id=str(chat_id))
+                    # Interactive command keyboard for Telegram
+                    MAIN_REPLY_KEYBOARD = {
+                        "keyboard": [
+                            [{"text": "📊 Статус"}, {"text": "📈 Отчёт"}],
+                            [{"text": "🟢 Запустить ферму"}, {"text": "⏸ Остановить ферму"}]
+                        ],
+                        "resize_keyboard": True
+                    }
 
-                    elif text == "/status":
+                    cmd = text.strip()
+                    cmd_lower = cmd.lower()
+
+                    # 1. Start Farm Command (priority over /start)
+                    if cmd_lower in [
+                        "/start_farm", "/startfarm", "старт фарм", "старт ферму", 
+                        "🟢 запустить ферму", "запустить ферму", "запуск"
+                    ]:
+                        set_setting("is_running", "1")
+                        max_th = get_setting("max_threads", "25")
+                        live_logger.add("SUCCESS", "orchestrator", f"Служба запущена пользователем через Telegram (Потоков: {max_th})")
+                        await send_telegram_alert(
+                            f"🟢 <b>Служба YAPF_Farm запущена!</b>\n\n"
+                            f"⚡ Браузерных потоков: <b>{max_th}</b>\n"
+                            f"🤖 Профилей в базе: <b>4000+</b>\n"
+                            f"🌐 Панель управления: <a href='http://pffarm.ru:8080'>http://pffarm.ru:8080</a>",
+                            custom_chat_id=str(chat_id),
+                            reply_markup=MAIN_REPLY_KEYBOARD
+                        )
+
+                    # 2. Stop Farm Command
+                    elif cmd_lower in [
+                        "/stop_farm", "/stopfarm", "стоп фарм", "стоп ферму", 
+                        "⏸ остановить ферму", "остановить ферму", "стоп", "пауза"
+                    ]:
+                        set_setting("is_running", "0")
+                        live_logger.add("WARN", "orchestrator", "Служба остановлена пользователем через Telegram")
+                        await send_telegram_alert(
+                            "⏸ <b>Служба YAPF_Farm остановлена</b>\n\n"
+                            "Все активные потоки плавно завершают текущие сессии.",
+                            custom_chat_id=str(chat_id),
+                            reply_markup=MAIN_REPLY_KEYBOARD
+                        )
+
+                    # 3. Status Command
+                    elif cmd_lower in ["/status", "статус", "📊 статус"]:
                         is_run = (get_setting("is_running", "0") == "1")
                         state_str = "🟢 В РАБОТЕ" if is_run else "⏸ ОСТАНОВЛЕН"
 
@@ -288,18 +318,23 @@ async def telegram_bot_polling_loop():
                             f"💻 Сервер: <b>CPU {cpu}% | RAM {ram}%</b>\n"
                             f"🌐 Панель: <a href='http://pffarm.ru:8080'>http://pffarm.ru:8080</a>"
                         )
-                        await send_telegram_alert(status_msg, custom_chat_id=str(chat_id))
+                        await send_telegram_alert(status_msg, custom_chat_id=str(chat_id), reply_markup=MAIN_REPLY_KEYBOARD)
 
-                    elif text == "/report":
+                    # 4. Report Command
+                    elif cmd_lower in ["/report", "отчет", "отчёт", "📈 отчет", "📈 отчёт", "📈 суточный отчёт"]:
                         await send_daily_summary(custom_chat_id=str(chat_id))
 
-                    elif text == "/start_farm":
-                        set_setting("is_running", "1")
-                        await send_telegram_alert("🟢 <b>Служба YAPF_Farm запущена через Telegram</b>", custom_chat_id=str(chat_id))
-
-                    elif text == "/stop_farm":
-                        set_setting("is_running", "0")
-                        await send_telegram_alert("⏸ <b>Служба YAPF_Farm остановлена через Telegram</b>", custom_chat_id=str(chat_id))
+                    # 5. Welcome Command (ONLY exact /start or with parameters)
+                    elif cmd == "/start" or cmd.startswith("/start "):
+                        user_display = f"@{username}" if username else first_name
+                        welcome_text = (
+                            f"👋 <b>Добро пожаловать в бота управления YAPF_Farm!</b>\n\n"
+                            f"Ваш Telegram логин: <b>{user_display}</b>\n"
+                            f"Ваш Chat ID: <code>{chat_id}</code>\n\n"
+                            f"✅ <b>Аккаунт успешно привязан!</b> Сюда приходят алерты и суточные отчёты.\n\n"
+                            f"Вы можете управлять фермой с помощью кнопок клавиатуры ниже:"
+                        )
+                        await send_telegram_alert(welcome_text, custom_chat_id=str(chat_id), reply_markup=MAIN_REPLY_KEYBOARD)
 
             # Automated scheduled daily report at telegram_daily_report_hour
             now = datetime.now()
