@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1d4ed8" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#06b6d4" />
+    </linearGradient>
+
+    <!-- Head Stroke Gradient -->
+    <linearGradient id="headStroke" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#22d3ee" />
+    </linearGradient>
+
+    <!-- Eye Visor Gradient -->
+    <linearGradient id="eyeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#00f2fe" />
+    </linearGradient>
+
+    <!-- Growth Badge Gradient -->
+    <linearGradient id="trendGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base -->
+  <rect width="512" height="512" rx="120" fill="url(#bgGrad)" />
+  <rect x="8" y="8" width="496" height="496" rx="114" fill="none" stroke="rgba(255, 255, 255, 0.25)" stroke-width="6" />
+
+  <!-- Antenna -->
+  <rect x="246" y="64" width="20" height="46" rx="10" fill="#e2e8f0" />
+  <circle cx="256" cy="58" r="24" fill="#00f2fe" filter="url(#glow)" />
+  <circle cx="256" cy="58" r="14" fill="#ffffff" />
+
+  <!-- Robot Ears -->
+  <rect x="66" y="210" width="34" height="76" rx="14" fill="#1e293b" stroke="#38bdf8" stroke-width="6" />
+  <rect x="412" y="210" width="34" height="76" rx="14" fill="#1e293b" stroke="#38bdf8" stroke-width="6" />
+
+  <!-- Robot Head Box -->
+  <rect x="90" y="110" width="332" height="274" rx="56" fill="#090d16" stroke="url(#headStroke)" stroke-width="12" />
+
+  <!-- Eye Visor Background -->
+  <rect x="130" y="166" width="252" height="84" rx="26" fill="#020617" stroke="#1e293b" stroke-width="5" />
+
+  <!-- Eyes with Glow -->
+  <ellipse cx="190" cy="208" rx="30" ry="20" fill="url(#eyeGrad)" filter="url(#glow)" />
+  <circle cx="198" cy="204" r="8" fill="#ffffff" />
+
+  <ellipse cx="322" cy="208" rx="30" ry="20" fill="url(#eyeGrad)" filter="url(#glow)" />
+  <circle cx="330" cy="204" r="8" fill="#ffffff" />
+
+  <!-- Dynamic Grille / Waveform / PF Bars -->
+  <g>
+    <rect x="180" y="296" width="18" height="32" rx="8" fill="#38bdf8" opacity="0.75" />
+    <rect x="212" y="284" width="18" height="44" rx="8" fill="#00f2fe" opacity="0.9" />
+    <rect x="244" y="272" width="24" height="56" rx="10" fill="#ffffff" filter="url(#glow)" />
+    <rect x="282" y="284" width="18" height="44" rx="8" fill="#00f2fe" opacity="0.9" />
+    <rect x="314" y="296" width="18" height="32" rx="8" fill="#38bdf8" opacity="0.75" />
+  </g>
+
+  <!-- Trending PF Growth Badge (bottom right) -->
+  <g transform="translate(340, 340)">
+    <circle cx="60" cy="60" r="56" fill="#090d16" stroke="#10b981" stroke-width="8" />
+    <circle cx="60" cy="60" r="48" fill="url(#trendGrad)" />
+    <!-- Rising Chart Arrow -->
+    <path d="M 38 74 L 54 58 L 64 68 L 84 46" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M 72 46 L 84 46 L 84 58" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+</svg>

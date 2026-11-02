@@ -1,0 +1,370 @@
+import os
+os.environ["PLAYWRIGHT_BROWSERS_PATH"] = r"C:\Users\Administrator\AppData\Local\ms-playwright"
+
+import asyncio
+import json
+import logging
+import random
+from datetime import datetime, timedelta
+from playwright.async_api import async_playwright
+from playwright_stealth import Stealth
+
+stealth_runner = Stealth()
+
+from app.database import get_db, get_setting, set_setting
+from app.engine.fingerprints import generate_fingerprint
+from app.engine.proxy import parse_proxy_line, trigger_proxy_rotation
+from app.engine.warmer import run_warming_cycle
+from app.engine.promo import run_promotion_click
+from app.engine.telegram import notify_click_success, notify_captcha, send_telegram_alert
+from app.engine.logger import live_logger
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger("orchestrator")
+
+BASE_PROFILES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "profiles_data")
+
+class TaskOrchestrator:
+    def __init__(self):
+        self.is_running = False
+        self.active_tasks = set()
+        self.busy_profiles = set()  # Active profile IDs currently locked by worker threads
+        self.stats = {
+            "active_threads": 0,
+            "warming_active": 0,
+            "promo_active": 0,
+            "clicks_today": 0,
+            "last_log": "Сервис готов к запуску"
+        }
+        os.makedirs(BASE_PROFILES_DIR, exist_ok=True)
+
+    async def get_or_create_profile(self, target_status="ready"):
+        """
+        Intelligently selects a profile or expands the pool:
+        1. Checks profiles ready for graduation to 'ready' (native SQLite datetime).
+        2. If promo needed, returns oldest ready profile.
+        3. For warming: enforces realistic human resting interval (cooldown) between warming cycles.
+        4. If all current profiles are in cooldown and target pool size is not reached, creates a NEW profile.
+        5. Automatically binds each profile to its own unique proxy from the pool.
+        """
+        conn = get_db()
+        c = conn.cursor()
+        
+        # 1. Check profiles ready for graduation: Warming with age >= 18h and cycles >= 2
+        min_age_h = str(get_setting("min_ready_age_hours", "18"))
+        min_cycles = int(get_setting("warming_cycles_to_ready", "2"))
+        c.execute("""
+            UPDATE profiles 
+            SET status = 'ready' 
+            WHERE status = 'warming' AND cycles_completed >= ? AND created_at <= datetime('now', '-' || ? || ' hours')
+        """, (min_cycles, min_age_h))
+        conn.commit()
+
+        # Build exclusion tuple for busy profiles
+        busy_ids = list(self.busy_profiles)
+        placeholders = ",".join("?" * len(busy_ids)) if busy_ids else "0"
+
+        # 2. If we need Ready profile for promotion
+        if target_status == "ready":
+            query = f"""
+                SELECT * FROM profiles 
+                WHERE status = 'ready' AND id NOT IN ({placeholders})
+                ORDER BY last_used_at ASC NULLS FIRST 
+                LIMIT 1
+            """
+            c.execute(query, busy_ids if busy_ids else ())
+            row = c.fetchone()
+            if row:
+                conn.close()
+                return dict(row)
+
+        # 3. Target profile pool limit and resting cooldown
+        c.execute("SELECT COUNT(*) as cnt FROM profiles")
+        total_profiles = c.fetchone()["cnt"]
+        target_count = int(get_setting("target_profiles_count", "300"))
+        cooldown_min = str(get_setting("profile_warming_cooldown_min", "15"))
+
+        # Check for an available profile whose cooldown has passed (native SQLite datetime calculation)
+        query = f"""
+            SELECT * FROM profiles 
+            WHERE status IN ('new', 'warming') 
+              AND id NOT IN ({placeholders})
+              AND (last_warmed_at IS NULL OR last_warmed_at <= datetime('now', '-' || ? || ' minutes'))
+            ORDER BY cycles_completed ASC, last_warmed_at ASC NULLS FIRST 
+            LIMIT 1
+        """
+        params = list(busy_ids) + [cooldown_min] if busy_ids else [cooldown_min]
+        c.execute(query, params)
+        row = c.fetchone()
+        if row:
+            conn.close()
+            return dict(row)
+
+        # 4. If no cooled-down profile exists AND total_profiles < target_count:
+        # Expand the farm by creating a brand new profile!
+        if total_profiles < target_count:
+            prof_name = f"prof_{total_profiles + 1}_{random.randint(1000, 9999)}"
+            prof_dir = os.path.join(BASE_PROFILES_DIR, prof_name)
+            os.makedirs(prof_dir, exist_ok=True)
+            
+            # 75% desktop, 25% android
+            dtype = "android" if random.random() < 0.25 else "desktop"
+            fp = generate_fingerprint(device_type=dtype)
+            
+            # Pick next unused proxy from pool
+            proxy_lines = [p.strip() for p in get_setting("proxy_list", "").split("\n") if p.strip()]
+            c.execute("SELECT proxy FROM profiles WHERE proxy IS NOT NULL")
+            used_proxies = {r["proxy"] for r in c.fetchall()}
+            avail_proxies = [p for p in proxy_lines if p not in used_proxies]
+            chosen_proxy = avail_proxies[0] if avail_proxies else (random.choice(proxy_lines) if proxy_lines else None)
+            
+            c.execute("""
+                INSERT INTO profiles (name, user_data_dir, fingerprint, status, device_type, proxy, created_at)
+                VALUES (?, ?, ?, 'new', ?, ?, CURRENT_TIMESTAMP)
+            """, (prof_name, prof_dir, json.dumps(fp), dtype, chosen_proxy))
+            conn.commit()
+            
+            c.execute("SELECT * FROM profiles WHERE name = ?", (prof_name,))
+            new_prof = dict(c.fetchone())
+            conn.close()
+            
+            port_label = chosen_proxy.split(':')[1] if chosen_proxy and ':' in chosen_proxy else 'N/A'
+            live_logger.add("INFO", "orchestrator", f"База расширена: создан профиль [{prof_name}] (#{total_profiles + 1}/{target_count}, порт :{port_label})")
+            return new_prof
+
+        # 5. If reached target pool size and all are in cooldown, pick the oldest warmed profile
+        query = f"""
+            SELECT * FROM profiles 
+            WHERE status IN ('new', 'warming') AND id NOT IN ({placeholders})
+            ORDER BY last_warmed_at ASC NULLS FIRST 
+            LIMIT 1
+        """
+        c.execute(query, busy_ids if busy_ids else ())
+        row = c.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    def get_pending_keyword(self):
+        """Fetch next keyword that needs clicks today."""
+        conn = get_db()
+        c = conn.cursor()
+        
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        c.execute("""
+            UPDATE keywords 
+            SET clicks_today = 0, last_reset_date = ? 
+            WHERE last_reset_date != ?
+        """, (today_str, today_str))
+        conn.commit()
+        
+        c.execute("""
+            SELECT k.*, p.domain 
+            FROM keywords k
+            JOIN projects p ON k.project_id = p.id
+            WHERE k.is_active = 1 AND p.is_active = 1 AND k.clicks_today < k.daily_goal
+            ORDER BY k.last_click_at ASC NULLS FIRST
+            LIMIT 1
+        """)
+        row = c.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    async def execute_worker_task(self, stagger_delay: float = 0.0):
+        if stagger_delay > 0:
+            await asyncio.sleep(stagger_delay)
+
+        profile_id = None
+        thread_counted = False
+        try:
+            if get_setting("is_running", "0") != "1":
+                return
+
+            # 1. Decide task: Promotion or Warming?
+            keyword_task = self.get_pending_keyword()
+            profile = None
+            task_type = "warming"
+            
+            if keyword_task:
+                # Try to get a free Ready profile
+                profile = await self.get_or_create_profile(target_status="ready")
+                if profile and profile["status"] == "ready":
+                    task_type = "promo"
+                else:
+                    profile = await self.get_or_create_profile(target_status="warming")
+                    task_type = "warming"
+            else:
+                profile = await self.get_or_create_profile(target_status="warming")
+                task_type = "warming"
+
+            if not profile:
+                await asyncio.sleep(2)
+                return
+
+            profile_id = profile["id"]
+            self.busy_profiles.add(profile_id)
+            self.stats["active_threads"] = self.stats.get("active_threads", 0) + 1
+            thread_counted = True
+
+            # 2. Setup browser with fingerprint & proxy
+            fp = json.loads(profile["fingerprint"])
+            proxy_lines = [p.strip() for p in get_setting("proxy_list", "").split("\n") if p.strip()]
+            proxy_config = None
+            rotate_url = None
+            proxy_scheme = get_setting("proxy_type", "http")
+            bind_to_profile = get_setting("proxy_bind_to_profile", "1") == "1"
+            
+            chosen_proxy_label = "Direct"
+            if proxy_lines:
+                chosen_line = None
+                if bind_to_profile and profile.get("proxy"):
+                    chosen_line = profile["proxy"]
+                if not chosen_line:
+                    conn = get_db()
+                    used_rows = conn.execute("SELECT proxy FROM profiles WHERE proxy IS NOT NULL AND id != ?", (profile["id"],)).fetchall()
+                    used_p = {r["proxy"] for r in used_rows}
+                    conn.close()
+                    avail = [p for p in proxy_lines if p not in used_p]
+                    chosen_line = avail[0] if avail else random.choice(proxy_lines)
+                    if bind_to_profile and profile.get("id"):
+                        try:
+                            conn = get_db()
+                            conn.execute("UPDATE profiles SET proxy = ? WHERE id = ?", (chosen_line, profile["id"]))
+                            conn.commit()
+                            conn.close()
+                        except Exception as pe:
+                            logger.warning(f"Failed to bind proxy: {pe}")
+                            
+                proxy_config, rotate_url = parse_proxy_line(chosen_line, default_scheme=proxy_scheme)
+                chosen_proxy_label = f"{chosen_line.split(':')[0]}:{chosen_line.split(':')[1]}"
+                if rotate_url:
+                    await trigger_proxy_rotation(rotate_url)
+
+            live_logger.add("INFO", profile["name"], f"Выделен поток ({task_type.upper()}), прокси: {chosen_proxy_label}")
+
+            # 3. Launch isolated browser instance
+            async with async_playwright() as p:
+                launch_args = [
+                    "--disable-blink-features=AutomationControlled",
+                    f"--window-size={fp['viewport']['width']},{fp['viewport']['height']}",
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--mute-audio"
+                ]
+                
+                context = await p.chromium.launch_persistent_context(
+                    user_data_dir=profile["user_data_dir"],
+                    headless=True,
+                    args=launch_args,
+                    viewport=fp["viewport"],
+                    user_agent=fp["user_agent"],
+                    proxy=proxy_config,
+                    locale="ru-RU",
+                    timezone_id="Europe/Moscow"
+                )
+                
+                page = context.pages[0] if context.pages else await context.new_page()
+                await stealth_runner.apply_stealth_async(page)
+                
+                if task_type == "promo":
+                    self.stats["promo_active"] += 1
+                    self.stats["last_log"] = f"[{profile['name']}] Клики ПФ: {keyword_task['domain']} -> '{keyword_task['keyword']}'"
+                    res = await run_promotion_click(page, keyword_task, profile["name"])
+                    
+                    conn = get_db()
+                    c = conn.cursor()
+                    c.execute("""
+                        INSERT INTO click_logs (keyword, target_url, domain, profile_name, device, region, position_found, status, details)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (keyword_task["keyword"], keyword_task["target_url"] or "", keyword_task["domain"],
+                          profile["name"], profile["device_type"], keyword_task.get("geo_region", "213"),
+                          res["position"], res["status"], res["details"]))
+                    
+                    if res["status"] == "success":
+                        c.execute("UPDATE keywords SET clicks_today = clicks_today + 1, last_click_at = CURRENT_TIMESTAMP WHERE id = ?", (keyword_task["id"],))
+                        c.execute("UPDATE profiles SET total_clicks = total_clicks + 1, last_used_at = CURRENT_TIMESTAMP, status = 'warming' WHERE id = ?", (profile["id"],))
+                        asyncio.create_task(notify_click_success(
+                            domain=keyword_task["domain"],
+                            keyword=keyword_task["keyword"],
+                            position=res.get("position", 0),
+                            profile_name=profile["name"],
+                            device=profile.get("device_type", "desktop")
+                        ))
+                    elif res["status"] == "captcha":
+                        asyncio.create_task(notify_captcha(
+                            keyword=keyword_task["keyword"],
+                            domain=keyword_task["domain"],
+                            solved=False
+                        ))
+                    conn.commit()
+                    conn.close()
+                    self.stats["promo_active"] -= 1
+
+                else:
+                    self.stats["warming_active"] += 1
+                    self.stats["last_log"] = f"[{profile['name']}] Нагул профиля (цикл #{profile['cycles_completed'] + 1})"
+                    ok = await run_warming_cycle(page, profile["id"], profile["name"])
+                    
+                    conn = get_db()
+                    c = conn.cursor()
+                    c.execute("""
+                        UPDATE profiles 
+                        SET cycles_completed = cycles_completed + 1, 
+                            last_warmed_at = CURRENT_TIMESTAMP, 
+                            status = 'warming'
+                        WHERE id = ?
+                    """, (profile["id"],))
+                    conn.commit()
+                    conn.close()
+                    self.stats["warming_active"] -= 1
+
+                await context.close()
+                live_logger.add("INFO", profile["name"], f"Браузерная сессия закрыта, профиль сохранен (цикл завершен)")
+
+        except Exception as e:
+            logger.error(f"Worker task error: {e}")
+            err_str = str(e)[:120]
+            self.stats["last_log"] = f"Ошибка потока: {err_str}"
+            live_logger.add("ERROR", profile["name"] if profile else "worker", f"Ошибка потока: {err_str}")
+        finally:
+            if profile_id is not None:
+                self.busy_profiles.discard(profile_id)
+            if thread_counted:
+                self.stats["active_threads"] = max(0, self.stats.get("active_threads", 1) - 1)
+
+    async def main_loop(self):
+        """Continuous orchestrator loop with responsive worker launches."""
+        logger.info("YAPF_Farm Orchestrator loop started.")
+        live_logger.add("INFO", "orchestrator", "Диспетчер потоков инициализирован и готов к распределению задач")
+        while True:
+            try:
+                is_run = (get_setting("is_running", "0") == "1")
+                current_max = int(get_setting("max_threads", "10"))
+                self.stats["max_threads"] = current_max
+                
+                if not is_run:
+                    self.stats["active_threads"] = 0
+                    self.stats["warming_active"] = 0
+                    self.stats["promo_active"] = 0
+                    self.busy_profiles.clear()
+                    await asyncio.sleep(2)
+                    continue
+
+                # Clean completed tasks
+                self.active_tasks = {t for t in self.active_tasks if not t.done()}
+
+                slots = current_max - len(self.active_tasks)
+                if slots > 0:
+                    launch_interval = float(get_setting("thread_launch_interval_sec", "1.5"))
+                    for i in range(slots):
+                        stagger = i * launch_interval
+                        t = asyncio.create_task(self.execute_worker_task(stagger_delay=stagger))
+                        self.active_tasks.add(t)
+
+                await asyncio.sleep(1.0)
+
+            except Exception as e:
+                logger.error(f"Main loop exception: {e}")
+                await asyncio.sleep(3)
+
+orchestrator = TaskOrchestrator()

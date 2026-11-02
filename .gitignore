@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Database & Runtime Profiles (generated dynamically per server)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+profiles_data/
+screenshots/
+screenshot*.*
+*.log
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Deployment artifacts
+*.zip
+take_shot.py
