@@ -7,30 +7,16 @@ from app.engine.logger import live_logger
 
 logger = logging.getLogger("promo")
 
-async def run_promotion_click(page, keyword_item, profile_name):
-    """
-    Executes a high-quality SEO behavioral factor click:
-    1. Search for target keyword in Yandex with region parameter.
-    2. Scan SERP (up to 5 pages) to locate target domain / URL.
-    3. (Optional) Check 1 competitor site for 10-15s.
-    4. Click target site.
-    5. Spend 40-120 seconds on target site with internal page browsing.
-    """
-    keyword = keyword_item["keyword"]
-    domain = keyword_item["domain"].lower().replace("www.", "")
-    target_url = keyword_item.get("target_url") or ""
-    region = keyword_item.get("geo_region") or "213"
+async def _search_and_click(page, search_query: str, region: str, domain: str, profile_name: str, max_pages: int = 5, is_tail: bool = False):
+    """Executes search and scans SERP for target domain up to max_pages."""
+    search_url = f"https://ya.ru/search/?text={quote_plus(search_query)}&lr={region}"
+    label = " (с брендовым хвостом)" if is_tail else ""
     
-    logger.info(f"[{profile_name}] PROMO START: key='{keyword}', target='{domain}', region={region}")
-    live_logger.add("PROMO", profile_name, f"Старт ПФ: запрос «{keyword}» для домена {domain} (регион {region})")
-    
-    # 1. Search in Yandex with region (retry on transient proxy errors)
-    search_url = f"https://ya.ru/search/?text={quote_plus(keyword)}&lr={region}"
     loaded = False
     for attempt in range(1, 3):
         try:
             attempt_str = f" (попытка {attempt}/2)" if attempt > 1 else ""
-            live_logger.add("PROMO", profile_name, f"Открытие поисковой выдачи: {keyword}{attempt_str}")
+            live_logger.add("PROMO", profile_name, f"Открытие поисковой выдачи: «{search_query}»{label}{attempt_str}")
             await page.goto(search_url, wait_until="domcontentloaded", timeout=30000)
             await asyncio.sleep(random.uniform(2.0, 4.0))
             loaded = True
@@ -47,7 +33,7 @@ async def run_promotion_click(page, keyword_item, profile_name):
     if not loaded:
         return {"status": "error", "position": 0, "details": "Search page failed to load"}
 
-    # Check for captcha
+    # Check for SmartCaptcha
     if "showcaptcha" in page.url or await page.query_selector("form.CheckboxCaptcha, input.CheckboxCaptcha-Button, #smartcaptcha-anchor"):
         logger.warning(f"[{profile_name}] Captcha detected on Yandex SERP!")
         live_logger.add("WARN", profile_name, "Обнаружена SmartCaptcha при поиске, попытка авто-клика...")
@@ -59,13 +45,9 @@ async def run_promotion_click(page, keyword_item, profile_name):
             live_logger.add("WARN", profile_name, "SmartCaptcha требует ручного решения или ключа сервиса")
             return {"status": "captcha", "position": 0, "details": "Captcha on search"}
 
-    target_found = False
-    position_found = 0
-
-    # Scan up to 5 pages
-    for page_num in range(1, 6):
-        live_logger.add("PROMO", profile_name, f"Сканирование выдачи: страница {page_num}...")
-        # Check organic items
+    # Scan pages
+    for page_num in range(1, max_pages + 1):
+        live_logger.add("PROMO", profile_name, f"Сканирование выдачи{label}: страница {page_num}...")
         items = await page.query_selector_all("li.serp-item")
         
         for idx, item in enumerate(items):
@@ -78,10 +60,10 @@ async def run_promotion_click(page, keyword_item, profile_name):
             
             # Check if domain matches
             if domain in href.lower() or domain in text.lower():
-                target_found = True
                 position_found = (page_num - 1) * 10 + (idx + 1)
-                logger.info(f"[{profile_name}] TARGET FOUND! Domain '{domain}' at position #{position_found} (Page {page_num})")
-                live_logger.add("SUCCESS", profile_name, f"🎯 Целевой домен «{domain}» найден на позиции #{position_found} (Стр. {page_num})!")
+                tail_str = " (по брендовому хвосту)" if is_tail else ""
+                logger.info(f"[{profile_name}] TARGET FOUND! Domain '{domain}' at position #{position_found} (Page {page_num}){tail_str}")
+                live_logger.add("SUCCESS", profile_name, f"🎯 Домен «{domain}» найден на позиции #{position_found} (Стр. {page_num}){tail_str}!")
                 
                 # Human mouse move to link and click
                 box = await link.bounding_box()
@@ -90,9 +72,12 @@ async def run_promotion_click(page, keyword_item, profile_name):
                                            box["x"] + box["width"]/2, box["y"] + box["height"]/2)
                 
                 live_logger.add("PROMO", profile_name, f"Клик по целевому сайту {domain} в выдаче")
-                async with page.expect_popup(timeout=10000) as popup_info:
-                    await link.click()
-                site_page = await popup_info.value
+                try:
+                    async with page.expect_popup(timeout=10000) as popup_info:
+                        await link.click()
+                    site_page = await popup_info.value
+                except Exception:
+                    site_page = page
                 
                 # Browse target site 40-90 seconds with internal clicks
                 dwell_time = random.uniform(40.0, 90.0)
@@ -117,10 +102,15 @@ async def run_promotion_click(page, keyword_item, profile_name):
                             except Exception:
                                 pass
                                 
-                if not site_page.is_closed():
+                if site_page != page and not site_page.is_closed():
                     await site_page.close()
-                live_logger.add("SUCCESS", profile_name, f"Сессия ПФ успешно завершена: {domain} #{position_found}")
-                return {"status": "success", "position": position_found, "details": f"Page {page_num}, Pos {position_found}"}
+
+                live_logger.add("SUCCESS", profile_name, f"Сессия ПФ успешно завершена: {domain} #{position_found}{tail_str}")
+                return {
+                    "status": "success", 
+                    "position": position_found, 
+                    "details": f"Стр. {page_num}, Позиция #{position_found}{tail_str}"
+                }
 
         # Next page button
         next_button = await page.query_selector("a.Pager-Item_type_next, a.pager__item_kind_next")
@@ -131,6 +121,50 @@ async def run_promotion_click(page, keyword_item, profile_name):
         else:
             break
 
-    logger.warning(f"[{profile_name}] Domain '{domain}' not found in top 50")
+    return {"status": "not_found", "position": 0, "details": "Not found in searched pages"}
+
+async def run_promotion_click(page, keyword_item, profile_name):
+    """
+    Executes a high-quality SEO behavioral factor click:
+    1. Search for target keyword in Yandex with region parameter.
+    2. Scan SERP (up to 5 pages) to locate target domain.
+    3. If target domain is NOT found in top 50, and brand tail is configured:
+       Automatically retry search with brand tail appended: «{keyword} {brand_tail}».
+    4. Click target site, emulate human dwell time (40-90s) and internal clicks.
+    """
+    keyword = keyword_item["keyword"].strip()
+    domain = keyword_item["domain"].lower().replace("www.", "")
+    target_url = keyword_item.get("target_url") or ""
+    region = str(keyword_item.get("geo_region") or "213")
+    brand_tail = (keyword_item.get("brand_tail") or keyword_item.get("project_brand_tail") or "").strip()
+    use_brand_tail = int(keyword_item.get("project_use_brand_tail", 1)) == 1
+
+    logger.info(f"[{profile_name}] PROMO START: key='{keyword}', domain='{domain}', region={region}, brand_tail='{brand_tail}'")
+    live_logger.add("PROMO", profile_name, f"Старт ПФ: запрос «{keyword}» для домена {domain} (регион LR: {region})")
+    
+    # 1. First attempt: search clean keyword in SERP (up to 5 pages = 50 results)
+    res = await _search_and_click(page, search_query=keyword, region=region, domain=domain, profile_name=profile_name, max_pages=5, is_tail=False)
+    
+    if res["status"] == "success":
+        return res
+        
+    if res["status"] in ["captcha", "error"]:
+        return res
+        
+    # 2. If not found in Top 50, check if we have a brand tail configured
+    if res["status"] == "not_found" and brand_tail and use_brand_tail:
+        tail_query = f"{keyword} {brand_tail}"
+        live_logger.add("WARN", profile_name, f"Сайт «{domain}» не в ТОП-50 по чистому запросу. Повторный поиск с брендовым хвостом: «{tail_query}»...")
+        logger.info(f"[{profile_name}] Query '{keyword}' not in Top 50. Retrying with brand tail: '{tail_query}'")
+        
+        res_tail = await _search_and_click(page, search_query=tail_query, region=region, domain=domain, profile_name=profile_name, max_pages=3, is_tail=True)
+        if res_tail["status"] == "success":
+            res_tail["details"] = f"С брендовым хвостом «{brand_tail}» ({res_tail['details']})"
+            return res_tail
+        else:
+            live_logger.add("WARN", profile_name, f"Домен «{domain}» не найден даже с брендовым хвостом «{brand_tail}» в ТОП-30")
+            return {"status": "not_found", "position": 0, "details": f"Не найден даже с хвостом '{brand_tail}'"}
+
+    logger.warning(f"[{profile_name}] Domain '{domain}' not found in top 50 for '{keyword}'")
     live_logger.add("WARN", profile_name, f"Домен «{domain}» не найден в ТОП-50 по запросу «{keyword}»")
     return {"status": "not_found", "position": 0, "details": "Not in Top 50"}

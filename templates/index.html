@@ -359,9 +359,9 @@
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div>
                     <h2 class="text-base sm:text-lg font-bold">Управление проектами и ключевыми словами</h2>
-                    <p class="text-xs text-slate-400">Сайты для продвижения в поиске Яндекса с привязкой по регионам (LR)</p>
+                    <p class="text-xs text-slate-400">Сайты для продвижения в поиске Яндекса с привязкой по регионам (LR) и брендовыми хвостами</p>
                 </div>
-                <button @click="showAddProject = true" class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">
+                <button @click="openAddProject()" class="w-full sm:w-auto px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">
                     <i class="fa-solid fa-plus"></i> Добавить проект
                 </button>
             </div>
@@ -372,8 +372,8 @@
                     <i class="fa-solid fa-folder-open"></i>
                 </div>
                 <h3 class="font-bold text-base text-slate-200">Пока нет добавленных проектов</h3>
-                <p class="text-xs text-slate-400 max-w-sm mx-auto">Добавьте свой сайт и ключевые запросы, чтобы ферма начала целевые клики в поиске Яндекса.</p>
-                <button @click="showAddProject = true" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">
+                <p class="text-xs text-slate-400 max-w-sm mx-auto">Добавьте свой сайт, регион и список ключевых запросов с новой строки, чтобы ферма начала целевые клики в поиске Яндекса.</p>
+                <button @click="openAddProject()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold">
                     Добавить первый сайт
                 </button>
             </div>
@@ -382,24 +382,37 @@
             <div class="grid grid-cols-1 gap-4">
                 <template x-for="p in projects" :key="p.id">
                     <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-5 space-y-4">
-                        <div class="flex items-center justify-between border-b border-slate-800 pb-3 gap-2">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-3 gap-3">
                             <div class="flex items-center gap-3 min-w-0">
-                                <div class="w-9 h-9 rounded-lg bg-blue-600/10 text-blue-400 flex items-center justify-center font-bold shrink-0">
+                                <div class="w-10 h-10 rounded-xl bg-blue-600/10 text-blue-400 flex items-center justify-center font-bold shrink-0 text-base">
                                     <i class="fa-solid fa-globe"></i>
                                 </div>
-                                <div class="min-w-0">
-                                    <h4 class="font-bold text-sm sm:text-base text-slate-100 truncate" x-text="p.name"></h4>
+                                <div class="min-w-0 space-y-0.5">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h4 class="font-bold text-sm sm:text-base text-slate-100 truncate" x-text="p.name"></h4>
+                                        <!-- Region badge -->
+                                        <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-[11px] font-mono flex items-center gap-1">
+                                            <i class="fa-solid fa-location-dot text-[10px]"></i> LR: <span x-text="p.default_region || '213'"></span>
+                                        </span>
+                                        <!-- Brand tail badge -->
+                                        <span x-show="p.brand_tail" class="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded text-[11px] font-mono flex items-center gap-1">
+                                            <i class="fa-solid fa-tag text-[10px]"></i> Хвост: «<span x-text="p.brand_tail"></span>»
+                                        </span>
+                                    </div>
                                     <a :href="'https://' + p.domain" target="_blank" class="text-xs text-slate-400 hover:text-blue-400 font-mono flex items-center gap-1">
                                         <span x-text="p.domain"></span>
                                         <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
                                     </a>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2 shrink-0">
-                                <button @click="selectedProject = p; showAddKeyword = true" class="px-3 py-1.5 bg-dark-850 hover:bg-dark-800 text-xs rounded-lg font-medium flex items-center gap-1.5 text-blue-400 border border-slate-700/80">
-                                    <i class="fa-solid fa-key"></i> <span class="hidden sm:inline">Добавить ключ</span>
+                            <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                <button @click="openEditProject(p)" class="px-2.5 py-1.5 bg-dark-850 hover:bg-dark-800 text-slate-300 hover:text-white text-xs rounded-lg font-medium flex items-center gap-1.5 border border-slate-700/80">
+                                    <i class="fa-solid fa-sliders text-blue-400"></i> <span class="hidden sm:inline">Настройки</span>
                                 </button>
-                                <button @click="deleteProject(p.id)" class="p-2 text-slate-400 hover:text-rose-400 text-xs rounded-lg hover:bg-dark-850">
+                                <button @click="openAddKeyword(p)" class="px-3 py-1.5 bg-blue-600/10 hover:bg-blue-600/20 text-blue-400 text-xs rounded-lg font-medium flex items-center gap-1.5 border border-blue-500/30">
+                                    <i class="fa-solid fa-plus"></i> <span>Добавить ключи</span>
+                                </button>
+                                <button @click="deleteProject(p.id)" class="p-2 text-slate-400 hover:text-rose-400 text-xs rounded-lg hover:bg-dark-850" title="Удалить проект">
                                     <i class="fa-solid fa-trash"></i>
                                 </button>
                             </div>
@@ -407,14 +420,16 @@
 
                         <!-- Keywords Table for this project -->
                         <div class="overflow-x-auto rounded-xl border border-slate-800/60">
-                            <table class="w-full text-left text-xs min-w-[500px]">
+                            <table class="w-full text-left text-xs min-w-[540px]">
                                 <thead class="text-slate-500 uppercase bg-dark-950/60 border-b border-slate-800">
                                     <tr>
                                         <th class="py-2.5 px-3">Ключевой запрос</th>
                                         <th class="py-2.5 px-3">Регион LR</th>
+                                        <th class="py-2.5 px-3">Хвост поиска</th>
                                         <th class="py-2.5 px-3">Кликов сегодня</th>
                                         <th class="py-2.5 px-3">Суточная цель</th>
                                         <th class="py-2.5 px-3">Прогресс</th>
+                                        <th class="py-2.5 px-3 text-right"></th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-800/60">
@@ -422,18 +437,27 @@
                                         <tr class="hover:bg-dark-850/40">
                                             <td class="py-2.5 px-3 font-medium text-slate-200" x-text="k.keyword"></td>
                                             <td class="py-2.5 px-3 font-mono text-blue-400" x-text="k.geo_region"></td>
+                                            <td class="py-2.5 px-3 font-mono">
+                                                <span x-show="k.brand_tail || p.brand_tail" class="text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded text-[10px]" x-text="k.brand_tail || p.brand_tail"></span>
+                                                <span x-show="!k.brand_tail && !p.brand_tail" class="text-slate-600">—</span>
+                                            </td>
                                             <td class="py-2.5 px-3 font-mono font-bold" :class="k.clicks_today >= k.daily_goal ? 'text-emerald-400' : 'text-slate-300'" x-text="k.clicks_today"></td>
                                             <td class="py-2.5 px-3 font-mono text-slate-400" x-text="k.daily_goal"></td>
                                             <td class="py-2.5 px-3">
-                                                <div class="w-24 bg-dark-950 rounded-full h-1.5 overflow-hidden">
+                                                <div class="w-20 bg-dark-950 rounded-full h-1.5 overflow-hidden">
                                                     <div class="bg-blue-500 h-1.5 rounded-full" :style="'width: ' + Math.min(100, Math.round((k.clicks_today / (k.daily_goal || 1)) * 100)) + '%'"></div>
                                                 </div>
+                                            </td>
+                                            <td class="py-2.5 px-3 text-right">
+                                                <button @click="deleteKeyword(k.id)" class="text-slate-500 hover:text-rose-400 p-1" title="Удалить ключ">
+                                                    <i class="fa-solid fa-xmark text-xs"></i>
+                                                </button>
                                             </td>
                                         </tr>
                                     </template>
                                     <tr x-show="!p.keywords || p.keywords.length === 0">
-                                        <td colspan="5" class="py-4 text-center text-slate-500 text-xs">
-                                            Ключевых фраз пока нет. Нажмите «Добавить ключ», чтобы начать.
+                                        <td colspan="7" class="py-4 text-center text-slate-500 text-xs">
+                                            Ключевых фраз пока нет. Нажмите «Добавить ключи», чтобы вставить список.
                                         </td>
                                     </tr>
                                 </tbody>
@@ -1695,54 +1719,179 @@
     </main>
 
     <!-- Modal: Add Project -->
-    <div x-show="showAddProject" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" x-cloak>
-        <div class="bg-dark-900 border border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-md space-y-4 shadow-2xl">
+    <div x-show="showAddProject" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
+        <div class="bg-dark-900 border border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-xl space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-                <h3 class="font-bold text-base sm:text-lg text-white">Добавить проект</h3>
-                <button @click="showAddProject = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold">
+                        <i class="fa-solid fa-folder-plus"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base sm:text-lg text-white">Добавить проект</h3>
+                        <p class="text-[11px] text-slate-400">Сайт, целевой регион, брендовый хвост и массовый ввод ключей</p>
+                    </div>
+                </div>
+                <button @click="showAddProject = false" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div>
-                <label class="block text-xs text-slate-300 font-medium mb-1">Название проекта</label>
-                <input type="text" x-model="newProject.name" placeholder="Например: Ремонт окон СПб" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs text-slate-300 font-medium mb-1">Название проекта</label>
+                    <input type="text" x-model="newProject.name" placeholder="Например: Ремонт окон Москва" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-300 font-medium mb-1">Домен сайта (без https://)</label>
+                    <input type="text" x-model="newProject.domain" placeholder="example.ru" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 font-mono">
+                </div>
             </div>
-            <div>
-                <label class="block text-xs text-slate-300 font-medium mb-1">Домен сайта (без https:// и слешей)</label>
-                <input type="text" x-model="newProject.domain" placeholder="example.ru" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 font-mono">
+
+            <!-- Region selector for ALL keys -->
+            <div class="p-3 bg-dark-950 rounded-xl border border-slate-800/80 space-y-2">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs text-slate-200 font-semibold flex items-center gap-1.5">
+                        <i class="fa-solid fa-location-dot text-blue-400"></i> Регион Яндекса (LR) для всех ключей
+                    </label>
+                    <span class="text-[11px] text-slate-400 font-mono">Выбран: LR <span class="text-blue-400 font-bold" x-text="newProject.default_region"></span></span>
+                </div>
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                    <input type="text" x-model="newProject.default_region" placeholder="213 (Москва)" class="w-full sm:w-28 bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button type="button" @click="newProject.default_region = '213'" class="px-2 py-1 text-[11px] rounded bg-dark-850 hover:bg-dark-800 text-slate-300 border border-slate-800" :class="newProject.default_region === '213' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : ''">Москва (213)</button>
+                        <button type="button" @click="newProject.default_region = '2'" class="px-2 py-1 text-[11px] rounded bg-dark-850 hover:bg-dark-800 text-slate-300 border border-slate-800" :class="newProject.default_region === '2' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : ''">СПб (2)</button>
+                        <button type="button" @click="newProject.default_region = '43'" class="px-2 py-1 text-[11px] rounded bg-dark-850 hover:bg-dark-800 text-slate-300 border border-slate-800" :class="newProject.default_region === '43' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : ''">Казань (43)</button>
+                        <button type="button" @click="newProject.default_region = '54'" class="px-2 py-1 text-[11px] rounded bg-dark-850 hover:bg-dark-800 text-slate-300 border border-slate-800" :class="newProject.default_region === '54' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : ''">Екб (54)</button>
+                        <button type="button" @click="newProject.default_region = '65'" class="px-2 py-1 text-[11px] rounded bg-dark-850 hover:bg-dark-800 text-slate-300 border border-slate-800" :class="newProject.default_region === '65' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : ''">Нск (65)</button>
+                        <button type="button" @click="newProject.default_region = '35'" class="px-2 py-1 text-[11px] rounded bg-dark-850 hover:bg-dark-800 text-slate-300 border border-slate-800" :class="newProject.default_region === '35' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : ''">Краснодар (35)</button>
+                    </div>
+                </div>
             </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button @click="showAddProject = false" class="px-4 py-2 bg-dark-850 hover:bg-dark-800 text-slate-300 text-xs rounded-lg font-medium">Отмена</button>
-                <button @click="submitAddProject()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-lg shadow-blue-600/20">Создать</button>
+
+            <!-- Brand Tail (Хвост для запросов не в топе) -->
+            <div class="p-3 bg-dark-950 rounded-xl border border-purple-500/20 space-y-2">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs text-purple-300 font-semibold flex items-center gap-1.5">
+                        <i class="fa-solid fa-tag text-purple-400"></i> Брендовый хвост (для запросов не в ТОП-50)
+                    </label>
+                    <label class="flex items-center gap-1.5 cursor-pointer text-[11px] text-slate-400">
+                        <input type="checkbox" x-model="newProject.use_brand_tail" class="rounded bg-dark-900 border-slate-700 text-purple-600 focus:ring-0">
+                        Включен
+                    </label>
+                </div>
+                <input type="text" x-model="newProject.brand_tail" placeholder="Например: Фабрика Окон или remont-okon.ru" class="w-full bg-dark-900 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-purple-500">
+                <p class="text-[11px] text-slate-400 leading-normal">
+                    💡 Если запрос находится глубже 5-й страницы выдачи, бот повторит поиск с брендовым хвостом: <span class="text-purple-300 font-mono">«{запрос} {хвост}»</span>, найдет сайт в ТОПе и выполнит переход, прокачивая ПФ для роста чистого ключа.
+                </p>
+            </div>
+
+            <!-- Bulk Keywords -->
+            <div class="space-y-1.5">
+                <div class="flex items-center justify-between">
+                    <label class="block text-xs text-slate-300 font-medium">Ключевые слова (каждое с новой строки)</label>
+                    <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                        <span>Цель:</span>
+                        <input type="number" x-model="newProject.daily_goal" min="1" max="100" class="w-14 bg-dark-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-center font-mono">
+                        <span>кл/день</span>
+                    </div>
+                </div>
+                <textarea x-model="newProject.keywords_text" rows="5" placeholder="купить пластиковые окна москва&#10;установка стеклопакетов недорого&#10;остекление балконов цена | 15" class="w-full bg-dark-950 border border-slate-800 rounded-lg p-3 text-xs sm:text-sm text-slate-200 font-mono focus:outline-none focus:border-blue-500 placeholder:text-slate-600"></textarea>
+                <p class="text-[11px] text-slate-500">Можно указать персональный суточный лимит через черту: <code>запрос | 20</code></p>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button type="button" @click="showAddProject = false" class="px-4 py-2 bg-dark-850 hover:bg-dark-800 text-slate-300 text-xs rounded-lg font-medium">Отмена</button>
+                <button type="button" @click="submitAddProject()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-lg shadow-blue-600/20 flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus"></i> Создать проект и добавить ключи
+                </button>
             </div>
         </div>
     </div>
 
-    <!-- Modal: Add Keyword -->
-    <div x-show="showAddKeyword" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" x-cloak>
-        <div class="bg-dark-900 border border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-md space-y-4 shadow-2xl">
+    <!-- Modal: Add Keywords to Existing Project -->
+    <div x-show="showAddKeyword" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
+        <div class="bg-dark-900 border border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-lg space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div>
-                    <h3 class="font-bold text-base sm:text-lg text-white">Добавить ключевой запрос</h3>
+                    <h3 class="font-bold text-base sm:text-lg text-white">Добавить ключи в проект</h3>
                     <p class="text-xs text-slate-400 mt-0.5">Сайт: <span class="font-bold text-blue-400" x-text="selectedProject ? selectedProject.domain : ''"></span></p>
                 </div>
-                <button @click="showAddKeyword = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                <button @click="showAddKeyword = false" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <div>
-                <label class="block text-xs text-slate-300 font-medium mb-1">Поисковый запрос</label>
-                <input type="text" x-model="newKeyword.keyword" placeholder="купить пластиковые окна недорого" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
-            </div>
+
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs text-slate-300 font-medium mb-1">Регион поиска (LR)</label>
-                    <input type="text" x-model="newKeyword.geo_region" placeholder="213 (Москва)" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 font-mono">
+                    <input type="text" x-model="newKeyword.geo_region" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 font-mono">
                 </div>
                 <div>
                     <label class="block text-xs text-slate-300 font-medium mb-1">Кликов в сутки</label>
-                    <input type="number" x-model="newKeyword.daily_goal" min="1" max="100" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 font-mono">
+                    <input type="number" x-model="newKeyword.daily_goal" min="1" max="100" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 font-mono">
                 </div>
             </div>
-            <div class="flex justify-end gap-2 pt-2">
-                <button @click="showAddKeyword = false" class="px-4 py-2 bg-dark-850 hover:bg-dark-800 text-slate-300 text-xs rounded-lg font-medium">Отмена</button>
-                <button @click="submitAddKeyword()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-lg shadow-blue-600/20">Добавить</button>
+
+            <div>
+                <label class="block text-xs text-purple-300 font-medium mb-1 flex items-center gap-1">
+                    <i class="fa-solid fa-tag text-purple-400"></i> Брендовый хвост (если сайт не в ТОП-50)
+                </label>
+                <input type="text" x-model="newKeyword.brand_tail" placeholder="Например: Фабрика Окон (по умолчанию из проекта)" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-purple-500">
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-300 font-medium mb-1">Ключевые слова (каждое с новой строки)</label>
+                <textarea x-model="newKeyword.keywords_text" rows="6" placeholder="купить окна москва&#10;заказать окна со скидкой&#10;остекление коттеджа | 20" class="w-full bg-dark-950 border border-slate-800 rounded-lg p-3 text-xs sm:text-sm text-slate-200 font-mono focus:outline-none focus:border-blue-500"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button type="button" @click="showAddKeyword = false" class="px-4 py-2 bg-dark-850 hover:bg-dark-800 text-slate-300 text-xs rounded-lg font-medium">Отмена</button>
+                <button type="button" @click="submitAddKeyword()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-lg shadow-blue-600/20 flex items-center gap-1.5">
+                    <i class="fa-solid fa-plus"></i> Добавить ключи
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Edit Project Settings -->
+    <div x-show="showEditProject" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
+        <div class="bg-dark-900 border border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-md space-y-4 shadow-2xl my-auto">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-base sm:text-lg text-white">Настройки проекта</h3>
+                <button @click="showEditProject = false" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div>
+                <label class="block text-xs text-slate-300 font-medium mb-1">Название проекта</label>
+                <input type="text" x-model="editProjectData.name" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+            </div>
+
+            <div class="p-3 bg-dark-950 rounded-xl border border-slate-800 space-y-2">
+                <label class="block text-xs text-slate-200 font-semibold flex items-center gap-1">
+                    <i class="fa-solid fa-location-dot text-blue-400"></i> Регион поиска Яндекса (LR)
+                </label>
+                <div class="flex items-center gap-2">
+                    <input type="text" x-model="editProjectData.default_region" class="w-24 bg-dark-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-blue-500">
+                    <span class="text-xs text-slate-400">Код LR (Москва = 213, СПб = 2)</span>
+                </div>
+                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-1">
+                    <input type="checkbox" x-model="editProjectData.apply_region_to_all" class="rounded bg-dark-900 border-slate-700 text-blue-600 focus:ring-0">
+                    <span>Применить этот регион ко всем существующим ключам проекта</span>
+                </label>
+            </div>
+
+            <div class="p-3 bg-dark-950 rounded-xl border border-purple-500/20 space-y-2">
+                <div class="flex items-center justify-between">
+                    <label class="block text-xs text-purple-300 font-semibold flex items-center gap-1">
+                        <i class="fa-solid fa-tag text-purple-400"></i> Брендовый хвост (для запросов не в топе)
+                    </label>
+                    <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer">
+                        <input type="checkbox" x-model="editProjectData.use_brand_tail" class="rounded bg-dark-900 border-slate-700 text-purple-600 focus:ring-0">
+                        Включен
+                    </label>
+                </div>
+                <input type="text" x-model="editProjectData.brand_tail" placeholder="Например: Фабрика Окон" class="w-full bg-dark-900 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-purple-500">
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button type="button" @click="showEditProject = false" class="px-4 py-2 bg-dark-850 hover:bg-dark-800 text-slate-300 text-xs rounded-lg font-medium">Отмена</button>
+                <button type="button" @click="submitEditProject()" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-lg shadow-blue-600/20">Сохранить</button>
             </div>
         </div>
     </div>
@@ -1788,9 +1937,32 @@
                 settings: {},
                 showAddProject: false,
                 showAddKeyword: false,
+                showEditProject: false,
                 selectedProject: null,
-                newProject: { name: '', domain: '' },
-                newKeyword: { keyword: '', geo_region: '213', daily_goal: 10 },
+                newProject: { 
+                    name: '', 
+                    domain: '', 
+                    default_region: '213', 
+                    brand_tail: '', 
+                    use_brand_tail: true, 
+                    keywords_text: '', 
+                    daily_goal: 10 
+                },
+                editProjectData: {
+                    id: null,
+                    name: '',
+                    domain: '',
+                    default_region: '213',
+                    brand_tail: '',
+                    use_brand_tail: true,
+                    apply_region_to_all: false
+                },
+                newKeyword: { 
+                    keywords_text: '', 
+                    geo_region: '213', 
+                    daily_goal: 10,
+                    brand_tail: ''
+                },
 
                 regions: [
                     { code: '213', city: 'Москва' },
@@ -1980,27 +2152,97 @@
                     } catch(e) {}
                 },
 
+                openAddProject() {
+                    this.newProject = {
+                        name: '',
+                        domain: '',
+                        default_region: '213',
+                        brand_tail: '',
+                        use_brand_tail: true,
+                        keywords_text: '',
+                        daily_goal: 10
+                    };
+                    this.showAddProject = true;
+                },
+
+                openAddKeyword(p) {
+                    this.selectedProject = p;
+                    this.newKeyword = {
+                        keywords_text: '',
+                        geo_region: p.default_region || '213',
+                        daily_goal: 10,
+                        brand_tail: p.brand_tail || ''
+                    };
+                    this.showAddKeyword = true;
+                },
+
+                openEditProject(p) {
+                    this.selectedProject = p;
+                    this.editProjectData = {
+                        id: p.id,
+                        name: p.name,
+                        domain: p.domain,
+                        default_region: p.default_region || '213',
+                        brand_tail: p.brand_tail || '',
+                        use_brand_tail: (p.use_brand_tail !== undefined ? (p.use_brand_tail == 1) : true),
+                        apply_region_to_all: false
+                    };
+                    this.showEditProject = true;
+                },
+
                 async submitAddProject() {
                     if (!this.newProject.name || !this.newProject.domain) return;
                     const fd = new FormData();
                     fd.append('name', this.newProject.name);
                     fd.append('domain', this.newProject.domain);
-                    await fetch('/api/projects', { method: 'POST', body: fd });
-                    this.newProject = { name: '', domain: '' };
-                    this.showAddProject = false;
-                    await this.loadProjects();
+                    fd.append('default_region', this.newProject.default_region || '213');
+                    fd.append('brand_tail', this.newProject.brand_tail || '');
+                    fd.append('use_brand_tail', this.newProject.use_brand_tail ? 1 : 0);
+                    fd.append('keywords_text', this.newProject.keywords_text || '');
+                    fd.append('daily_goal', this.newProject.daily_goal || 10);
+                    
+                    const res = await fetch('/api/projects', { method: 'POST', body: fd });
+                    if (res.ok) {
+                        this.showAddProject = false;
+                        await this.loadProjects();
+                    }
+                },
+
+                async submitEditProject() {
+                    if (!this.editProjectData.id) return;
+                    const fd = new FormData();
+                    fd.append('name', this.editProjectData.name);
+                    fd.append('default_region', this.editProjectData.default_region || '213');
+                    fd.append('brand_tail', this.editProjectData.brand_tail || '');
+                    fd.append('use_brand_tail', this.editProjectData.use_brand_tail ? 1 : 0);
+                    fd.append('apply_region_to_all', this.editProjectData.apply_region_to_all ? 1 : 0);
+                    
+                    const res = await fetch('/api/projects/' + this.editProjectData.id, { method: 'PUT', body: fd });
+                    if (res.ok) {
+                        this.showEditProject = false;
+                        await this.loadProjects();
+                    }
                 },
 
                 async submitAddKeyword() {
-                    if (!this.selectedProject || !this.newKeyword.keyword) return;
+                    if (!this.selectedProject || !this.newKeyword.keywords_text.trim()) return;
                     const fd = new FormData();
                     fd.append('project_id', this.selectedProject.id);
-                    fd.append('keyword', this.newKeyword.keyword);
-                    fd.append('daily_goal', this.newKeyword.daily_goal);
-                    fd.append('geo_region', this.newKeyword.geo_region);
-                    await fetch('/api/keywords', { method: 'POST', body: fd });
-                    this.newKeyword.keyword = '';
-                    this.showAddKeyword = false;
+                    fd.append('keywords_text', this.newKeyword.keywords_text);
+                    fd.append('daily_goal', this.newKeyword.daily_goal || 10);
+                    fd.append('geo_region', this.newKeyword.geo_region || '213');
+                    fd.append('brand_tail', this.newKeyword.brand_tail || '');
+                    
+                    const res = await fetch('/api/keywords', { method: 'POST', body: fd });
+                    if (res.ok) {
+                        this.showAddKeyword = false;
+                        await this.loadProjects();
+                    }
+                },
+
+                async deleteKeyword(id) {
+                    if (!confirm('Удалить ключевой запрос?')) return;
+                    await fetch('/api/keywords/' + id, { method: 'DELETE' });
                     await this.loadProjects();
                 },
 

@@ -197,12 +197,79 @@ async def list_projects():
     return projects
 
 @app.post("/api/projects")
-async def create_project(domain: str = Form(...), name: str = Form(...)):
+async def create_project(
+    domain: str = Form(...), 
+    name: str = Form(...),
+    default_region: str = Form("213"),
+    brand_tail: str = Form(""),
+    use_brand_tail: int = Form(1),
+    keywords_text: str = Form(""),
+    daily_goal: int = Form(10)
+):
     domain_clean = domain.strip().lower().replace("https://", "").replace("http://", "").split("/")[0]
+    region_clean = default_region.strip() or "213"
+    brand_clean = brand_tail.strip()
+    
     conn = get_db()
     c = conn.cursor()
     try:
-        c.execute("INSERT INTO projects (domain, name) VALUES (?, ?)", (domain_clean, name.strip()))
+        c.execute("""
+            INSERT INTO projects (domain, name, default_region, brand_tail, use_brand_tail) 
+            VALUES (?, ?, ?, ?, ?)
+        """, (domain_clean, name.strip(), region_clean, brand_clean, int(use_brand_tail)))
+        project_id = c.lastrowid
+
+        # Bulk insert keywords if provided
+        if keywords_text and keywords_text.strip():
+            raw_lines = [l.strip() for l in keywords_text.splitlines() if l.strip()]
+            for line in raw_lines:
+                # Support format: "ключевое слово | 15" or simply "ключевое слово"
+                goal = daily_goal
+                key_str = line
+                if "|" in line:
+                    parts = line.split("|", 1)
+                    key_str = parts[0].strip()
+                    try:
+                        goal = int(parts[1].strip())
+                    except ValueError:
+                        goal = daily_goal
+                
+                if key_str:
+                    c.execute("""
+                        INSERT INTO keywords (project_id, keyword, daily_goal, geo_region, brand_tail)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (project_id, key_str, goal, region_clean, brand_clean))
+
+        conn.commit()
+    except Exception as e:
+        conn.close()
+        return JSONResponse({"status": "error", "message": str(e)}, status_code=400)
+    conn.close()
+    return {"status": "ok", "project_id": project_id}
+
+@app.put("/api/projects/{project_id}")
+async def update_project(
+    project_id: int,
+    name: str = Form(None),
+    default_region: str = Form(None),
+    brand_tail: str = Form(None),
+    use_brand_tail: int = Form(None),
+    apply_region_to_all: int = Form(0)
+):
+    conn = get_db()
+    c = conn.cursor()
+    try:
+        if name is not None:
+            c.execute("UPDATE projects SET name = ? WHERE id = ?", (name.strip(), project_id))
+        if default_region is not None:
+            reg = default_region.strip() or "213"
+            c.execute("UPDATE projects SET default_region = ? WHERE id = ?", (reg, project_id))
+            if apply_region_to_all:
+                c.execute("UPDATE keywords SET geo_region = ? WHERE project_id = ?", (reg, project_id))
+        if brand_tail is not None:
+            c.execute("UPDATE projects SET brand_tail = ? WHERE id = ?", (brand_tail.strip(), project_id))
+        if use_brand_tail is not None:
+            c.execute("UPDATE projects SET use_brand_tail = ? WHERE id = ?", (int(use_brand_tail), project_id))
         conn.commit()
     except Exception as e:
         conn.close()
@@ -211,18 +278,63 @@ async def create_project(domain: str = Form(...), name: str = Form(...)):
     return {"status": "ok"}
 
 @app.post("/api/keywords")
-async def add_keyword(
+async def add_keywords(
     project_id: int = Form(...),
-    keyword: str = Form(...),
+    keyword: str = Form(None),
+    keywords_text: str = Form(None),
     daily_goal: int = Form(10),
-    geo_region: str = Form("213")
+    geo_region: str = Form("213"),
+    brand_tail: str = Form("")
 ):
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
-        INSERT INTO keywords (project_id, keyword, daily_goal, geo_region)
-        VALUES (?, ?, ?, ?)
-    """, (project_id, keyword.strip(), daily_goal, geo_region.strip()))
+    region_clean = geo_region.strip() or "213"
+    brand_clean = brand_tail.strip()
+    
+    # Check if project has default brand_tail if none specified
+    if not brand_clean:
+        c.execute("SELECT brand_tail, default_region FROM projects WHERE id = ?", (project_id,))
+        proj_row = c.fetchone()
+        if proj_row:
+            brand_clean = proj_row[0] or ""
+            if not geo_region or geo_region == "213":
+                region_clean = proj_row[1] or "213"
+
+    items_to_add = []
+    if keywords_text and keywords_text.strip():
+        for l in keywords_text.splitlines():
+            l = l.strip()
+            if not l:
+                continue
+            goal = daily_goal
+            k_name = l
+            if "|" in l:
+                parts = l.split("|", 1)
+                k_name = parts[0].strip()
+                try:
+                    goal = int(parts[1].strip())
+                except ValueError:
+                    goal = daily_goal
+            if k_name:
+                items_to_add.append((k_name, goal))
+    elif keyword and keyword.strip():
+        items_to_add.append((keyword.strip(), daily_goal))
+
+    for k_name, goal in items_to_add:
+        c.execute("""
+            INSERT INTO keywords (project_id, keyword, daily_goal, geo_region, brand_tail)
+            VALUES (?, ?, ?, ?, ?)
+        """, (project_id, k_name, goal, region_clean, brand_clean))
+
+    conn.commit()
+    conn.close()
+    return {"status": "ok", "added_count": len(items_to_add)}
+
+@app.delete("/api/keywords/{keyword_id}")
+async def delete_keyword(keyword_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM keywords WHERE id = ?", (keyword_id,))
     conn.commit()
     conn.close()
     return {"status": "ok"}

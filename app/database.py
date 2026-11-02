@@ -98,6 +98,24 @@ def init_db():
         last_interaction TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
+
+    # Auto-migrations for Projects & Keywords tables (brand tails, default regions)
+    try:
+        c.execute("ALTER TABLE projects ADD COLUMN default_region TEXT DEFAULT '213'")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE projects ADD COLUMN brand_tail TEXT DEFAULT ''")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE projects ADD COLUMN use_brand_tail INTEGER DEFAULT 1")
+    except Exception:
+        pass
+    try:
+        c.execute("ALTER TABLE keywords ADD COLUMN brand_tail TEXT DEFAULT ''")
+    except Exception:
+        pass
     
     # Insert default settings if not exist (Comprehensive Alpine-compatible schema)
     defaults = {

@@ -158,7 +158,10 @@ class TaskOrchestrator:
         conn.commit()
         
         c.execute("""
-            SELECT k.*, p.domain 
+            SELECT k.*, p.domain, p.name as project_name,
+                   p.brand_tail as project_brand_tail,
+                   p.use_brand_tail as project_use_brand_tail,
+                   p.default_region as project_default_region
             FROM keywords k
             JOIN projects p ON k.project_id = p.id
             WHERE k.is_active = 1 AND p.is_active = 1 AND k.clicks_today < k.daily_goal
