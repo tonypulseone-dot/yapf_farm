@@ -85,22 +85,77 @@ async def send_telegram_alert(text: str, custom_chat_id: str = None) -> dict:
         logger.error(f"Failed to send Telegram alert: {e}")
         return {"status": "error", "error": str(e)}
 
-async def send_daily_summary(stats: dict):
+async def send_daily_summary(stats: dict = None, custom_chat_id: str = None):
     """
-    Sends structured daily summary notification to Telegram.
+    Sends structured daily summary notification to Telegram with live thread & server telemetry.
     """
+    if stats is None:
+        stats = {}
+
+    # Merge with live metrics from orchestrator if available
+    try:
+        from app.engine.orchestrator import orchestrator
+        orch_stats = orchestrator.stats
+    except Exception:
+        orch_stats = {}
+
+    try:
+        import psutil
+        cpu_load = psutil.cpu_percent(interval=None)
+        ram_load = psutil.virtual_memory().percent
+    except Exception:
+        cpu_load = stats.get("cpu_load", 0)
+        ram_load = stats.get("ram_load", 0)
+
+    active_th = orch_stats.get("active_threads", stats.get("active_threads", 0))
+    max_th = orch_stats.get("max_threads", int(get_setting("max_threads", "25")))
+    warming_th = orch_stats.get("warming_active", stats.get("warming_active", 0))
+    promo_th = orch_stats.get("promo_active", stats.get("promo_active", 0))
+
+    # Profiles & Clicks from DB if not provided
+    if "profiles_total" not in stats:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute("SELECT status, COUNT(*) as cnt FROM profiles GROUP BY status")
+        prof_rows = c.fetchall()
+        prof_stats = {r["status"]: r["cnt"] for r in prof_rows}
+        c.execute("SELECT COUNT(*) as cnt FROM click_logs WHERE DATE(timestamp) = DATE('now') AND status = 'success'")
+        clicks_today = c.fetchone()["cnt"]
+        c.execute("SELECT COUNT(*) as cnt FROM projects WHERE is_active = 1")
+        proj_cnt = c.fetchone()["cnt"]
+        conn.close()
+
+        profiles_total = sum(prof_stats.values())
+        profiles_ready = prof_stats.get("ready", 0)
+        profiles_warming = prof_stats.get("warming", 0)
+        profiles_new = prof_stats.get("new", 0)
+    else:
+        clicks_today = stats.get("clicks_today", 0)
+        profiles_total = stats.get("profiles_total", 0)
+        profiles_ready = stats.get("profiles_ready", 0)
+        profiles_warming = stats.get("profiles_warming", 0)
+        profiles_new = stats.get("profiles_new", 0)
+        proj_cnt = stats.get("projects_count", 0)
+
+    is_run = (get_setting("is_running", "0") == "1")
+    state_str = "🟢 В РАБОТЕ" if is_run else "⏸ ОСТАНОВЛЕН"
+
     msg = (
-        "📊 <b>YAPF_Farm: Суточный отчёт системы</b>\n\n"
-        f"🎯 Целевых кликов сегодня: <b>{stats.get('clicks_today', 0)}</b>\n"
-        f"🤖 Профилей в базе: <b>{stats.get('profiles_total', 0)}</b>\n"
-        f"   • Готовые к поиску (Ready): <b>{stats.get('profiles_ready', 0)}</b>\n"
-        f"   • На нагуле (Warming): <b>{stats.get('profiles_warming', 0)}</b>\n"
-        f"   • Новые (New): <b>{stats.get('profiles_new', 0)}</b>\n\n"
-        f"📁 Активных проектов: <b>{stats.get('projects_count', 0)}</b>\n"
-        f"⚡ Загрузка сервера: <b>CPU {stats.get('cpu_load', 0)}% / RAM {stats.get('ram_load', 0)}%</b>\n"
-        f"🌐 Панель управления: <a href='http://pffarm.ru'>http://pffarm.ru</a>"
+        f"📊 <b>YAPF_Farm: Суточный отчёт системы</b>\n\n"
+        f"⚡ <b>Состояние фермы:</b> {state_str}\n"
+        f"🔥 <b>Браузеров в работе:</b> <b>{active_th} / {max_th}</b>\n"
+        f"   • Нагул профилей: <b>{warming_th}</b>\n"
+        f"   • Продвижение (ПФ): <b>{promo_th}</b>\n\n"
+        f"🎯 <b>Целевых кликов сегодня:</b> <b>{clicks_today}</b>\n\n"
+        f"🤖 <b>База профилей ({profiles_total} шт):</b>\n"
+        f"   • Готовые к поиску (Ready): <b>{profiles_ready}</b>\n"
+        f"   • В нагуле (Warming): <b>{profiles_warming}</b>\n"
+        f"   • Новые (New): <b>{profiles_new}</b>\n\n"
+        f"📁 Активных проектов: <b>{proj_cnt}</b>\n"
+        f"💻 Загрузка сервера: <b>CPU {cpu_load}% / RAM {ram_load}%</b>\n"
+        f"🌐 Панель управления: <a href='http://pffarm.ru:8080'>http://pffarm.ru:8080</a>"
     )
-    return await send_telegram_alert(msg)
+    return await send_telegram_alert(msg, custom_chat_id=custom_chat_id)
 
 async def notify_click_success(domain: str, keyword: str, position: int, profile_name: str, device: str):
     notify_clicks = get_setting("telegram_notify_clicks", "1")
@@ -196,38 +251,47 @@ async def telegram_bot_polling_loop():
                     elif text == "/status":
                         is_run = (get_setting("is_running", "0") == "1")
                         state_str = "🟢 В РАБОТЕ" if is_run else "⏸ ОСТАНОВЛЕН"
-                        max_th = get_setting("max_threads", "25")
+
+                        try:
+                            from app.engine.orchestrator import orchestrator
+                            orch = orchestrator.stats
+                        except Exception:
+                            orch = {}
+
+                        active_th = orch.get("active_threads", 0)
+                        max_th = orch.get("max_threads", int(get_setting("max_threads", "25")))
+                        warming_th = orch.get("warming_active", 0)
+                        promo_th = orch.get("promo_active", 0)
+
+                        try:
+                            import psutil
+                            cpu = psutil.cpu_percent(interval=None)
+                            ram = psutil.virtual_memory().percent
+                        except Exception:
+                            cpu, ram = 0, 0
+
+                        conn = get_db()
+                        c = conn.cursor()
+                        c.execute("SELECT COUNT(*) as cnt FROM profiles")
+                        tot_prof = c.fetchone()["cnt"]
+                        c.execute("SELECT COUNT(*) as cnt FROM click_logs WHERE DATE(timestamp) = DATE('now') AND status = 'success'")
+                        clicks_tod = c.fetchone()["cnt"]
+                        conn.close()
+
                         status_msg = (
-                            f"ℹ️ <b>Статус YAPF_Farm</b>: {state_str}\n"
-                            f"⚡ Потоков: <b>{max_th}</b>\n"
-                            f"🌐 Домен: <b>pffarm.ru</b>"
+                            f"ℹ️ <b>Статус YAPF_Farm: {state_str}</b>\n\n"
+                            f"⚡ <b>Браузерные потоки:</b> <b>{active_th} / {max_th}</b>\n"
+                            f"   • Нагул профилей: <b>{warming_th}</b>\n"
+                            f"   • Продвижение (ПФ): <b>{promo_th}</b>\n\n"
+                            f"🤖 Всего профилей в базе: <b>{tot_prof}</b>\n"
+                            f"🎯 Целевых кликов сегодня: <b>{clicks_tod}</b>\n"
+                            f"💻 Сервер: <b>CPU {cpu}% | RAM {ram}%</b>\n"
+                            f"🌐 Панель: <a href='http://pffarm.ru:8080'>http://pffarm.ru:8080</a>"
                         )
                         await send_telegram_alert(status_msg, custom_chat_id=str(chat_id))
 
                     elif text == "/report":
-                        # Fetch current counts
-                        conn = get_db()
-                        c = conn.cursor()
-                        c.execute("SELECT COUNT(*) as cnt FROM click_logs WHERE DATE(timestamp) = DATE('now') AND status = 'success'")
-                        clicks = c.fetchone()["cnt"]
-                        c.execute("SELECT status, COUNT(*) as cnt FROM profiles GROUP BY status")
-                        prof_rows = c.fetchall()
-                        prof_stats = {r["status"]: r["cnt"] for r in prof_rows}
-                        c.execute("SELECT COUNT(*) as cnt FROM projects WHERE is_active = 1")
-                        proj_cnt = c.fetchone()["cnt"]
-                        conn.close()
-
-                        report_data = {
-                            "clicks_today": clicks,
-                            "profiles_total": sum(prof_stats.values()),
-                            "profiles_ready": prof_stats.get("ready", 0),
-                            "profiles_warming": prof_stats.get("warming", 0),
-                            "profiles_new": prof_stats.get("new", 0),
-                            "projects_count": proj_cnt,
-                            "cpu_load": 0,
-                            "ram_load": 0
-                        }
-                        await send_daily_summary(report_data)
+                        await send_daily_summary(custom_chat_id=str(chat_id))
 
                     elif text == "/start_farm":
                         set_setting("is_running", "1")
@@ -236,6 +300,18 @@ async def telegram_bot_polling_loop():
                     elif text == "/stop_farm":
                         set_setting("is_running", "0")
                         await send_telegram_alert("⏸ <b>Служба YAPF_Farm остановлена через Telegram</b>", custom_chat_id=str(chat_id))
+
+            # Automated scheduled daily report at telegram_daily_report_hour
+            now = datetime.now()
+            try:
+                target_hour = int(get_setting("telegram_daily_report_hour", "21"))
+                today_str = now.strftime("%Y-%m-%d")
+                last_sent_date = get_setting("telegram_last_report_date", "")
+                if now.hour == target_hour and last_sent_date != today_str:
+                    set_setting("telegram_last_report_date", today_str)
+                    await send_daily_summary()
+            except Exception as sch_err:
+                logger.debug(f"Daily report schedule check: {sch_err}")
 
             await asyncio.sleep(1.0)
         except Exception as e:
