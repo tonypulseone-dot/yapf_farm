@@ -40,6 +40,17 @@ class SafeStreamWriter:
             except Exception:
                 pass
 
+    def isatty(self):
+        return False
+
+    def fileno(self):
+        if self.stream and hasattr(self.stream, 'fileno'):
+            try:
+                return self.stream.fileno()
+            except Exception:
+                pass
+        return 1
+
 try:
     log_file_handle = open(service_log_path, "a", encoding="utf-8", buffering=1, errors="replace")
     sys.stdout = SafeStreamWriter(sys.stdout, log_file_handle)
