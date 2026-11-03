@@ -45,16 +45,13 @@ class TaskOrchestrator:
         prof_dir = os.path.join(BASE_PROFILES_DIR, prof_name)
         os.makedirs(prof_dir, exist_ok=True)
         
-        # 80% android, 20% desktop (Alpine standard)
-        dtype = "android" if random.random() < 0.80 else "desktop"
+        # 100% Android generation to build full mobile pool (up to 4000)
+        dtype = "android"
         fp = generate_fingerprint(device_type=dtype)
         
-        # Pick next unused proxy from pool, or random if all in use
+        # Distribute evenly across 300 proxy ports
         proxy_lines = [p.strip() for p in get_setting("proxy_list", "").split("\n") if p.strip()]
-        c.execute("SELECT proxy FROM profiles WHERE proxy IS NOT NULL")
-        used_proxies = {r["proxy"] for r in c.fetchall()}
-        avail_proxies = [p for p in proxy_lines if p not in used_proxies]
-        chosen_proxy = avail_proxies[0] if avail_proxies else (random.choice(proxy_lines) if proxy_lines else None)
+        chosen_proxy = proxy_lines[total_profiles % len(proxy_lines)] if proxy_lines else None
         
         c.execute("""
             INSERT INTO profiles (name, user_data_dir, fingerprint, status, device_type, proxy, created_at)
@@ -270,20 +267,16 @@ class TaskOrchestrator:
             proxy_config = None
             rotate_url = None
             proxy_scheme = get_setting("proxy_type", "http")
-            bind_to_profile = get_setting("proxy_bind_to_profile", "1") == "1"
+            bind_to_profile = str(get_setting("proxy_bind_to_profile", "1")).lower() in ["1", "true"]
             
             chosen_proxy_label = "Direct"
             if proxy_lines:
                 chosen_line = None
-                if bind_to_profile and profile.get("proxy"):
+                if bind_to_profile and profile.get("proxy") and profile["proxy"] in proxy_lines:
                     chosen_line = profile["proxy"]
                 if not chosen_line:
-                    conn = get_db()
-                    used_rows = conn.execute("SELECT proxy FROM profiles WHERE proxy IS NOT NULL AND id != ?", (profile["id"],)).fetchall()
-                    used_p = {r["proxy"] for r in used_rows}
-                    conn.close()
-                    avail = [p for p in proxy_lines if p not in used_p]
-                    chosen_line = avail[0] if avail else random.choice(proxy_lines)
+                    # Назначаем прокси из активного пула равномерно (round-robin по ID профиля)
+                    chosen_line = proxy_lines[profile["id"] % len(proxy_lines)]
                     if bind_to_profile and profile.get("id"):
                         try:
                             conn = get_db()
