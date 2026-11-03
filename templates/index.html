@@ -516,6 +516,21 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                                <!-- Dedicated Start/Stop PF Button per Project -->
+                                <template x-if="p.is_active == 1">
+                                    <button @click="toggleProjectPromo(p.id)" class="px-3 py-1.5 bg-emerald-500/15 hover:bg-rose-500/20 text-emerald-400 hover:text-rose-300 border border-emerald-500/30 hover:border-rose-500/30 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-sm group" title="Нажмите, чтобы приостановить поисковые переходы для этого проекта">
+                                        <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse group-hover:bg-rose-400"></span>
+                                        <span class="group-hover:hidden">ПФ запущен</span>
+                                        <span class="hidden group-hover:inline flex items-center gap-1"><i class="fa-solid fa-pause"></i> Остановить ПФ</span>
+                                    </button>
+                                </template>
+                                <template x-if="!p.is_active || p.is_active == 0">
+                                    <button @click="toggleProjectPromo(p.id)" class="px-3 py-1.5 bg-dark-950 hover:bg-emerald-600 text-slate-300 hover:text-white border border-slate-700/80 hover:border-emerald-500 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition shadow-sm" title="Нажмите, чтобы включить целевые клики по ключевым запросам этого проекта">
+                                        <i class="fa-solid fa-play text-emerald-400"></i>
+                                        <span>Запустить ПФ</span>
+                                    </button>
+                                </template>
+
                                 <button @click="openEditProject(p)" class="px-2.5 py-1.5 bg-dark-850 hover:bg-dark-800 text-slate-300 hover:text-white text-xs rounded-lg font-medium flex items-center gap-1.5 border border-slate-700/80">
                                     <i class="fa-solid fa-sliders text-blue-400"></i> <span class="hidden sm:inline">Настройки</span>
                                 </button>
@@ -609,9 +624,9 @@
                 </div>
 
                 <!-- Form 2-Column Grid -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
                     <!-- Left Column: Parameters -->
-                    <div class="lg:col-span-7 space-y-4">
+                    <div class="lg:col-span-8 space-y-4">
                         <div>
                             <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">ПРОЕКТ</label>
                             <select x-model="selectedPositionProjectId" @change="onPositionProjectChange()"
@@ -639,34 +654,25 @@
                             </div>
                         </div>
 
-                        <div class="pt-1">
-                            <label class="flex items-start gap-2.5 cursor-pointer">
-                                <input type="checkbox" x-model="positionCheckFresh" class="mt-0.5 rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
-                                <div>
-                                    <span class="text-xs font-medium text-slate-200">Свежая выдача</span>
-                                    <p class="text-[11px] text-slate-500 mt-0.5">Собрать результаты заново, без кэша API.</p>
-                                </div>
+                        <div class="pt-0.5">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" x-model="positionCheckFresh" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
+                                <span class="text-xs font-medium text-slate-300">Свежая выдача (парсинг органики ya.ru в реальном времени)</span>
                             </label>
                         </div>
                     </div>
 
-                    <!-- Right Column: Cost & Action Button -->
-                    <div class="lg:col-span-5 bg-dark-950 p-4 sm:p-5 rounded-2xl border border-slate-800/90 space-y-4">
-                        <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
-                            <span class="text-xs text-slate-400">Максимальная стоимость</span>
-                            <span class="text-sm font-bold font-mono text-emerald-400">0 ₽ (Бесплатно)</span>
-                        </div>
-
-                        <div class="text-xs text-slate-300">
-                            <template x-if="!selectedPositionProjectId">
-                                <span class="text-slate-500">Нет проекта для проверки</span>
-                            </template>
-                            <template x-if="selectedPositionProjectId">
-                                <div class="flex items-center justify-between">
-                                    <span>Запросов к замеру:</span>
-                                    <span class="font-mono font-bold text-blue-400" x-text="positionsList.length + ' шт.'"></span>
-                                </div>
-                            </template>
+                    <!-- Right Column: Status & Normal-Sized Action Button -->
+                    <div class="lg:col-span-4 bg-dark-950 p-4 sm:p-5 rounded-2xl border border-slate-800/90 space-y-4">
+                        <div class="space-y-1.5 text-xs text-slate-300">
+                            <div class="flex items-center justify-between text-slate-400 text-xs">
+                                <span>Запросов к замеру:</span>
+                                <span class="font-mono font-bold text-blue-400" x-text="positionsList.length + ' шт.'"></span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-400 text-xs">
+                                <span>Глубина парсинга:</span>
+                                <span class="font-mono text-slate-300">ТОП-100 (10 страниц)</span>
+                            </div>
                         </div>
 
                         <!-- Progress Bar during active checking -->
@@ -680,34 +686,31 @@
                             </div>
                         </div>
 
-                        <!-- Main Action Button -->
-                        <div>
+                        <!-- Normal-Sized Button (Not full width!) -->
+                        <div class="pt-1">
                             <template x-if="!selectedPositionProjectId">
-                                <button @click="openAddProject()" class="w-full py-3 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/30 rounded-xl font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-2">
+                                <button @click="openAddProject()" class="px-5 py-2.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl font-semibold text-xs transition flex items-center gap-2">
                                     <i class="fa-solid fa-plus"></i> Сначала добавьте проект
                                 </button>
                             </template>
                             <template x-if="selectedPositionProjectId">
-                                <button @click="runPositionsCheck()" :disabled="posProgress.is_running"
-                                        class="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 active:scale-95 transition">
+                                <button @click="runPositionsCheck()" :disabled="posProgress.is_running || positionsList.length === 0"
+                                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-blue-600/25 flex items-center gap-2 active:scale-95 transition">
                                     <template x-if="posProgress.is_running">
                                         <span class="flex items-center gap-2">
-                                            <i class="fa-solid fa-spinner animate-spin"></i> Съем позиций... (<span x-text="posProgress.current + '/' + posProgress.total"></span>)
+                                            <i class="fa-solid fa-spinner animate-spin"></i> Съем... (<span x-text="posProgress.current + '/' + posProgress.total"></span>)
                                         </span>
                                     </template>
                                     <template x-if="!posProgress.is_running">
                                         <span class="flex items-center gap-2">
-                                            <i class="fa-solid fa-crosshairs"></i> Запустить проверку позиций
+                                            <i class="fa-solid fa-crosshairs"></i> Запустить проверку
                                         </span>
                                     </template>
                                 </button>
                             </template>
                         </div>
-
-                        <p class="text-[11px] text-slate-500 leading-relaxed">
-                            С баланса Alpine только за результат, включая «не в Топ-100». В вашей ферме съём позиций 100% бесплатный через собственный пул мобильных прокси.
-                        </p>
                     </div>
+                </div>
                 </div>
             </div>
 
@@ -950,12 +953,17 @@
                                         </template>
                                     </td>
                                     <td class="py-3 px-3 text-slate-400 text-[11px] font-mono whitespace-nowrap" x-text="item.last_checked"></td>
-                                    <td class="py-3 px-3 text-right">
+                                    <td class="py-3 px-3 text-right whitespace-nowrap">
                                         <button @click="checkSingleKeywordPos(item.keyword_id)" 
                                                 :disabled="posCheckingSingle === item.keyword_id"
                                                 class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-dark-850 rounded-lg transition"
                                                 title="Перепроверить позицию сейчас">
                                             <i class="fa-solid fa-rotate" :class="posCheckingSingle === item.keyword_id ? 'fa-spin text-blue-400' : ''"></i>
+                                        </button>
+                                        <button @click="deleteKeyword(item.keyword_id)" 
+                                                class="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-dark-850 rounded-lg transition ml-1"
+                                                title="Удалить ключевой запрос из проекта">
+                                            <i class="fa-solid fa-trash-can"></i>
                                         </button>
                                     </td>
                                 </tr>
@@ -2265,8 +2273,8 @@
                         Выбран: <span class="text-blue-400 font-bold" x-text="getRegionName(newProject.default_region)"></span> (LR <span class="text-blue-400 font-bold" x-text="newProject.default_region"></span>)
                     </span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <select x-model="newProject.default_region" class="flex-1 bg-dark-900 border border-slate-700 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer">
+                <div class="flex items-center gap-2 min-w-0">
+                    <select x-model="newProject.default_region" class="flex-1 min-w-0 bg-dark-900 border border-slate-700 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer truncate">
                         <optgroup label="⭐ Популярные регионы">
                             <option value="213">Москва (LR 213)</option>
                             <option value="1">Московская область (LR 1)</option>
@@ -2458,7 +2466,7 @@
                             <option value="167">Азербайджан (Баку) (LR 167)</option>
                         </optgroup>
                     </select>
-                    <input type="text" x-model="newProject.default_region" placeholder="213" class="w-20 bg-dark-900 border border-slate-700 rounded-lg px-2.5 py-2 text-xs sm:text-sm text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500" title="Ручной ввод кода LR">
+                    <input type="text" x-model="newProject.default_region" placeholder="213" class="w-16 sm:w-20 shrink-0 bg-dark-900 border border-slate-700 rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500" title="Ручной ввод кода LR">
                 </div>
             </div>
 
@@ -2766,8 +2774,8 @@
                         <span class="text-blue-400 font-bold" x-text="getRegionName(editProjectData.default_region)"></span> (LR <span class="text-blue-400 font-bold" x-text="editProjectData.default_region"></span>)
                     </span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <select x-model="editProjectData.default_region" class="flex-1 bg-dark-900 border border-slate-700 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer">
+                <div class="flex items-center gap-2 min-w-0">
+                    <select x-model="editProjectData.default_region" class="flex-1 min-w-0 bg-dark-900 border border-slate-700 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer truncate">
                         <optgroup label="⭐ Популярные регионы">
                             <option value="213">Москва (LR 213)</option>
                             <option value="1">Московская область (LR 1)</option>
@@ -2959,7 +2967,7 @@
                             <option value="167">Азербайджан (Баку) (LR 167)</option>
                         </optgroup>
                     </select>
-                    <input type="text" x-model="editProjectData.default_region" placeholder="213" class="w-20 bg-dark-900 border border-slate-700 rounded-lg px-2.5 py-2 text-xs sm:text-sm text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500" title="Ручной ввод кода LR">
+                    <input type="text" x-model="editProjectData.default_region" placeholder="213" class="w-16 sm:w-20 shrink-0 bg-dark-900 border border-slate-700 rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500" title="Ручной ввод кода LR">
                 </div>
                 <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pt-1">
                     <input type="checkbox" x-model="editProjectData.apply_region_to_all" class="rounded bg-dark-900 border-slate-700 text-blue-600 focus:ring-0">
@@ -3508,16 +3516,45 @@
                     }
                 },
 
+                async toggleProjectPromo(projectId) {
+                    try {
+                        const res = await fetch(`/api/projects/${projectId}/toggle-promo`, { method: 'POST' });
+                        if (res.ok) {
+                            await this.loadProjects();
+                        }
+                    } catch(e) {
+                        alert('Ошибка переключения статуса ПФ: ' + e.message);
+                    }
+                },
+
                 async deleteKeyword(id) {
                     if (!confirm('Удалить ключевой запрос?')) return;
-                    await fetch('/api/keywords/' + id, { method: 'DELETE' });
-                    await this.loadProjects();
+                    try {
+                        const res = await fetch('/api/keywords/' + id, { method: 'DELETE' });
+                        if (res.ok) {
+                            await this.loadProjects();
+                            if (this.currentTab === 'positions') {
+                                await this.loadPositionsData();
+                            }
+                        }
+                    } catch(e) {
+                        alert('Ошибка удаления: ' + e.message);
+                    }
                 },
 
                 async deleteProject(id) {
                     if (!confirm('Удалить проект и все его ключи?')) return;
-                    await fetch('/api/projects/' + id, { method: 'DELETE' });
-                    await this.loadProjects();
+                    try {
+                        const res = await fetch('/api/projects/' + id, { method: 'DELETE' });
+                        if (res.ok) {
+                            await this.loadProjects();
+                            if (this.currentTab === 'positions') {
+                                await this.loadPositionsData();
+                            }
+                        }
+                    } catch(e) {
+                        alert('Ошибка удаления: ' + e.message);
+                    }
                 },
 
                 async loadLogs() {

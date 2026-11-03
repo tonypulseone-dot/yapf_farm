@@ -79,16 +79,6 @@ class TaskOrchestrator:
         """
         conn = get_db()
         c = conn.cursor()
-        
-        # 1. Check profiles ready for graduation: Warming with age >= 18h and cycles >= 1 (Alpine Standard)
-        min_age_h = str(get_setting("min_ready_age_hours", "18"))
-        min_cycles = int(get_setting("warming_cycles_to_ready", "1"))
-        c.execute("""
-            UPDATE profiles 
-            SET status = 'ready' 
-            WHERE status = 'warming' AND cycles_completed >= ? AND created_at <= datetime('now', '-' || ? || ' hours')
-        """, (min_cycles, min_age_h))
-        conn.commit()
 
         # Build exclusion tuple for busy profiles
         busy_ids = list(self.busy_profiles)
@@ -350,6 +340,9 @@ class TaskOrchestrator:
                                 solved=False
                             ))
 
+                        conn.commit()
+                        conn.close()
+
                         if res["status"] in ["success", "not_found"]:
                             try:
                                 from app.database import record_position
@@ -366,8 +359,6 @@ class TaskOrchestrator:
                                 )
                             except Exception as rpe:
                                 logger.warning(f"Failed to record promo position: {rpe}")
-                        conn.commit()
-                        conn.close()
                     finally:
                         self.stats["promo_active"] = max(0, self.stats["promo_active"] - 1)
 
@@ -432,6 +423,8 @@ class TaskOrchestrator:
         """Continuous orchestrator loop with responsive worker launches."""
         logger.info("YAPF_Farm Orchestrator loop started.")
         live_logger.add("INFO", "orchestrator", "Диспетчер потоков инициализирован и готов к распределению задач")
+        last_graduation_check = 0.0
+
         while True:
             try:
                 is_run = (get_setting("is_running", "0") == "1")
@@ -445,6 +438,24 @@ class TaskOrchestrator:
                     self.busy_profiles.clear()
                     await asyncio.sleep(2)
                     continue
+
+                # Periodic graduation check (every 60s)
+                now_ts = asyncio.get_event_loop().time()
+                if now_ts - last_graduation_check > 60:
+                    last_graduation_check = now_ts
+                    try:
+                        g_conn = get_db()
+                        min_age_h = str(get_setting("min_ready_age_hours", "18"))
+                        min_cycles = int(get_setting("warming_cycles_to_ready", "1"))
+                        g_conn.execute("""
+                            UPDATE profiles 
+                            SET status = 'ready' 
+                            WHERE status = 'warming' AND cycles_completed >= ? AND created_at <= datetime('now', '-' || ? || ' hours')
+                        """, (min_cycles, min_age_h))
+                        g_conn.commit()
+                        g_conn.close()
+                    except Exception as ge:
+                        logger.warning(f"Graduation check error: {ge}")
 
                 # Clean completed tasks
                 self.active_tasks = {t for t in self.active_tasks if not t.done()}

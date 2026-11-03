@@ -260,8 +260,8 @@ async def create_project(
     c = conn.cursor()
     try:
         c.execute("""
-            INSERT INTO projects (domain, name, default_region, brand_tail, use_brand_tail) 
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO projects (domain, name, default_region, brand_tail, use_brand_tail, is_active) 
+            VALUES (?, ?, ?, ?, ?, 0)
         """, (domain_clean, name.strip(), region_clean, brand_clean, int(use_brand_tail)))
         project_id = c.lastrowid
 
@@ -376,10 +376,31 @@ async def add_keywords(
     conn.close()
     return {"status": "ok", "added_count": len(items_to_add)}
 
+@app.post("/api/projects/{project_id}/toggle-promo")
+async def toggle_project_promo_api(project_id: int):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, name, is_active FROM projects WHERE id = ?", (project_id,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return JSONResponse({"status": "error", "message": "Проект не найден"}, status_code=404)
+    
+    current_active = row["is_active"]
+    new_state = 0 if current_active == 1 else 1
+    c.execute("UPDATE projects SET is_active = ? WHERE id = ?", (new_state, project_id))
+    conn.commit()
+    conn.close()
+    
+    state_str = "запущено" if new_state == 1 else "поставлено на паузу"
+    live_logger.add("INFO", "orchestrator", f"Продвижение проекта «{row['name']}» {state_str}")
+    return {"status": "ok", "is_active": new_state}
+
 @app.delete("/api/keywords/{keyword_id}")
 async def delete_keyword(keyword_id: int):
     conn = get_db()
     c = conn.cursor()
+    c.execute("DELETE FROM positions_history WHERE keyword_id = ?", (keyword_id,))
     c.execute("DELETE FROM keywords WHERE id = ?", (keyword_id,))
     conn.commit()
     conn.close()
@@ -389,6 +410,7 @@ async def delete_keyword(keyword_id: int):
 async def delete_project(project_id: int):
     conn = get_db()
     c = conn.cursor()
+    c.execute("DELETE FROM positions_history WHERE project_id = ?", (project_id,))
     c.execute("DELETE FROM keywords WHERE project_id = ?", (project_id,))
     c.execute("DELETE FROM projects WHERE id = ?", (project_id,))
     conn.commit()
