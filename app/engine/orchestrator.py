@@ -45,8 +45,8 @@ class TaskOrchestrator:
         prof_dir = os.path.join(BASE_PROFILES_DIR, prof_name)
         os.makedirs(prof_dir, exist_ok=True)
         
-        # 75% desktop, 25% android
-        dtype = "android" if random.random() < 0.25 else "desktop"
+        # 80% android, 20% desktop (Alpine standard)
+        dtype = "android" if random.random() < 0.80 else "desktop"
         fp = generate_fingerprint(device_type=dtype)
         
         # Pick next unused proxy from pool, or random if all in use
@@ -97,28 +97,39 @@ class TaskOrchestrator:
         busy_ids = list(self.busy_profiles)
         placeholders = ",".join("?" * len(busy_ids)) if busy_ids else "0"
 
-        # 2. If we need Ready profile for promotion
+        # 2. If we need Ready profile for promotion (prefer 80% Android / 20% Desktop)
         if target_status == "ready":
-            query = f"""
+            preferred_dtype = "android" if random.random() < 0.80 else "desktop"
+            query_preferred = f"""
                 SELECT * FROM profiles 
-                WHERE status = 'ready' AND id NOT IN ({placeholders})
+                WHERE status = 'ready' AND device_type = ? AND id NOT IN ({placeholders})
                 ORDER BY last_used_at ASC NULLS FIRST 
                 LIMIT 1
             """
-            c.execute(query, busy_ids if busy_ids else ())
+            c.execute(query_preferred, [preferred_dtype] + (busy_ids if busy_ids else []))
             row = c.fetchone()
+            if not row:
+                query_fallback = f"""
+                    SELECT * FROM profiles 
+                    WHERE status = 'ready' AND id NOT IN ({placeholders})
+                    ORDER BY last_used_at ASC NULLS FIRST 
+                    LIMIT 1
+                """
+                c.execute(query_fallback, busy_ids if busy_ids else ())
+                row = c.fetchone()
             if row:
                 conn.close()
                 return dict(row)
 
-        # 3. Target profile pool limit and resting cooldown
+        # 3. Target profile pool limit and resting cooldown (Alpine: 3-8 hours = 180-480 min random)
         c.execute("SELECT COUNT(*) as cnt FROM profiles")
         total_profiles = c.fetchone()["cnt"]
-        target_count = int(get_setting("target_profiles_count", "3000"))
-        cooldown_min = str(get_setting("profile_warming_cooldown_min", "15"))
+        target_count = int(get_setting("target_profiles_count", "4000"))
+        
+        # Случайная отлежка между циклами (3–8 часов, как в AlpineSoft)
+        cooldown_min = str(random.randint(180, 480))
 
         # 4. If pool size is below target_count, smoothly introduce new profiles (30% of worker tasks)
-        # This prevents the pool from stalling when cycle time matches cooldown!
         if total_profiles < target_count and random.random() < 0.30:
             return self._create_new_profile_sync(conn, total_profiles, target_count)
 
@@ -139,13 +150,31 @@ class TaskOrchestrator:
             return dict(row)
 
         # 6. If no cooled-down unready profile exists AND total_profiles < target_count:
-        # Expand the farm by creating a brand new profile!
         if total_profiles < target_count:
             return self._create_new_profile_sync(conn, total_profiles, target_count)
 
-        # 7. Maintenance Warming (Догрев для готовой базы):
-        # Все профили достигли целевого объема и статуса Ready (или новые на отлежке).
-        # Берем остывшие готовые профили для регулярного поддержания активности и нагула кук!
+        # 7. ПРИОРИТЕТНЫЙ ДОНАГУЛ 48 ЧАСОВ (Правило Alpine):
+        # Если готовый Ready-профиль не использовался для продвижения более 48 часов,
+        # он получает высший приоритет на догрев для сохранения свежести кук
+        query_idle_48 = f"""
+            SELECT * FROM profiles 
+            WHERE status = 'ready' 
+              AND id NOT IN ({placeholders})
+              AND (
+                  (last_used_at IS NOT NULL AND last_used_at <= datetime('now', '-48 hours'))
+                  OR (last_used_at IS NULL AND last_warmed_at <= datetime('now', '-48 hours'))
+              )
+              AND (last_warmed_at IS NULL OR last_warmed_at <= datetime('now', '-' || ? || ' minutes'))
+            ORDER BY last_warmed_at ASC NULLS FIRST
+            LIMIT 1
+        """
+        c.execute(query_idle_48, params)
+        row = c.fetchone()
+        if row:
+            conn.close()
+            return dict(row)
+
+        # 8. Maintenance Warming (Обычный догрев для готовой базы):
         query = f"""
             SELECT * FROM profiles 
             WHERE id NOT IN ({placeholders})
@@ -153,14 +182,13 @@ class TaskOrchestrator:
             ORDER BY last_warmed_at ASC NULLS FIRST, cycles_completed ASC
             LIMIT 1
         """
-        params = list(busy_ids) + [cooldown_min] if busy_ids else [cooldown_min]
         c.execute(query, params)
         row = c.fetchone()
         if row:
             conn.close()
             return dict(row)
 
-        # 8. Fallback: если все профили на отлежке, берем профиль с самой давней сессией нагула
+        # 9. Fallback: если все профили на отлежке, берем профиль с самой давней сессией нагула
         query = f"""
             SELECT * FROM profiles 
             WHERE id NOT IN ({placeholders})
