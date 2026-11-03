@@ -174,7 +174,7 @@ async def handle_yandex_checkbox_captcha(page) -> bool:
                     break
                     
         if checkbox:
-            distort = get_setting("captcha_distort_coords", "1") == "1"
+            distort = str(get_setting("captcha_distort_coords", "1")).lower() in ["1", "true"]
             try:
                 box = await checkbox.bounding_box()
                 if box and box.get("width", 0) > 0 and box.get("height", 0) > 0:

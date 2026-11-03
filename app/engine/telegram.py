@@ -46,8 +46,8 @@ async def send_telegram_alert(text: str, custom_chat_id: str = None, reply_marku
     """
     Sends an alert message to configured Telegram bot chat or specified username.
     """
-    notifications_enabled = get_setting("telegram_notifications_enabled", "1").strip()
-    if notifications_enabled == "0" and not custom_chat_id:
+    notifications_enabled = str(get_setting("telegram_notifications_enabled", "1")).strip().lower()
+    if notifications_enabled in ["0", "false"] and not custom_chat_id:
         return {"status": "disabled", "message": "Notifications disabled in settings"}
 
     token = get_active_bot_token()
@@ -160,8 +160,8 @@ async def send_daily_summary(stats: dict = None, custom_chat_id: str = None):
     return await send_telegram_alert(msg, custom_chat_id=custom_chat_id)
 
 async def notify_click_success(domain: str, keyword: str, position: int, profile_name: str, device: str):
-    notify_clicks = get_setting("telegram_notify_clicks", "1")
-    if notify_clicks == "0":
+    notify_clicks = str(get_setting("telegram_notify_clicks", "1")).lower()
+    if notify_clicks in ["0", "false"]:
         return
     
     pos_text = f"#{position}" if position > 0 else "Прямой переход"
@@ -176,8 +176,8 @@ async def notify_click_success(domain: str, keyword: str, position: int, profile
     return await send_telegram_alert(msg)
 
 async def notify_captcha(keyword: str, domain: str, solved: bool, service: str = ""):
-    notify_c = get_setting("telegram_notify_captcha", "1")
-    if notify_c == "0":
+    notify_c = str(get_setting("telegram_notify_captcha", "1")).lower()
+    if notify_c in ["0", "false"]:
         return
 
     status_icon = f"✅ Решена успешно ({service})" if solved else "⚠️ Капча не решена / ротация IP"

@@ -375,7 +375,15 @@ async def get_settings_api():
 @app.post("/api/settings")
 async def update_settings_api(data: dict):
     for k, v in data.items():
-        set_setting(k, str(v))
+        if isinstance(v, bool):
+            val_str = "1" if v else "0"
+        elif str(v).lower() == "true":
+            val_str = "1"
+        elif str(v).lower() == "false":
+            val_str = "0"
+        else:
+            val_str = str(v)
+        set_setting(k, val_str)
     return {"status": "ok"}
 
 @app.get("/api/telegram/status")

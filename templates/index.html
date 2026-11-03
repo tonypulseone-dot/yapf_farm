@@ -660,7 +660,7 @@
                         </div>
                         <div class="pt-2 border-t border-slate-800">
                             <label class="flex items-center gap-2.5 cursor-pointer">
-                                <input type="checkbox" x-model="settings.captcha_distort_coords" true-value="1" false-value="0" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
+                                <input type="checkbox" x-model="settings.captcha_distort_coords" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
                                 <span class="text-xs text-slate-300">Искажать координаты клика чекбокса (Human Bézier Curve)</span>
                             </label>
                             <p class="text-[11px] text-slate-500 mt-1 pl-6">Добавляет микроколебания курсора перед нажатием для снижения подозрений нейросети Яндекса</p>
@@ -797,7 +797,7 @@
 
                     <div class="pt-3 border-t border-slate-800">
                         <label class="flex items-center gap-2.5 cursor-pointer">
-                            <input type="checkbox" x-model="settings.proxy_bind_to_profile" true-value="1" false-value="0" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
+                            <input type="checkbox" x-model="settings.proxy_bind_to_profile" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
                             <div>
                                 <span class="text-xs font-medium text-slate-200">Закреплять порт/прокси за профилем (Sticky Profile IP)</span>
                                 <p class="text-[11px] text-slate-400 mt-0.5">Каждый профиль намертво запоминает свой порт из пула. Профиль выходит в сеть всегда с одного и того же IP, исключая подозрения антифрода Яндекса.</p>
@@ -841,7 +841,7 @@
                         </div>
                         <div class="flex items-center pt-5">
                             <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" x-model="settings.thread_auto_restart" true-value="1" false-value="0" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
+                                <input type="checkbox" x-model="settings.thread_auto_restart" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
                                 <span class="text-xs text-slate-300">Автоматически перезапускать упавшие воркеры</span>
                             </label>
                         </div>
@@ -1064,28 +1064,28 @@
                             <p class="text-xs font-semibold text-slate-300">Типы отправляемых уведомлений</p>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                                 <label class="flex items-center gap-2.5 cursor-pointer bg-dark-950 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition">
-                                    <input type="checkbox" x-model="settings.telegram_notify_clicks" true-value="1" false-value="0" class="rounded bg-dark-900 border-slate-700 text-blue-600 focus:ring-0">
+                                    <input type="checkbox" x-model="settings.telegram_notify_clicks" class="rounded bg-dark-900 border-slate-700 text-blue-600 focus:ring-0">
                                     <div>
                                         <span class="font-medium text-slate-200">Целевые клики в ТОП</span>
                                         <p class="text-[10px] text-slate-500">Уведомление при успешном переходе на сайт</p>
                                     </div>
                                 </label>
                                 <label class="flex items-center gap-2.5 cursor-pointer bg-dark-950 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition">
-                                    <input type="checkbox" x-model="settings.telegram_notify_captcha" true-value="1" false-value="0" class="rounded bg-dark-900 border-slate-700 text-blue-600 focus:ring-0">
+                                    <input type="checkbox" x-model="settings.telegram_notify_captcha" class="rounded bg-dark-900 border-slate-700 text-blue-600 focus:ring-0">
                                     <div>
                                         <span class="font-medium text-slate-200">Разгадка капчи</span>
                                         <p class="text-[10px] text-slate-500">Алерты о SmartCaptcha и результатах</p>
                                     </div>
                                 </label>
                                 <label class="flex items-center gap-2.5 cursor-pointer bg-dark-950 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition">
-                                    <input type="checkbox" x-model="settings.telegram_notify_errors" true-value="1" false-value="0" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
+                                    <input type="checkbox" x-model="settings.telegram_notify_errors" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
                                     <div>
                                         <span class="font-medium text-slate-200">Сбои прокси и ошибки</span>
                                         <p class="text-[10px] text-slate-500">Таймауты, ошибки ротации, исчерпание баланса</p>
                                     </div>
                                 </label>
                                 <label class="flex items-center gap-2.5 cursor-pointer bg-dark-950 p-3 rounded-xl border border-slate-800 hover:border-slate-700 transition">
-                                    <input type="checkbox" x-model="settings.telegram_notifications_enabled" true-value="1" false-value="0" class="rounded bg-dark-900 border-slate-700 text-blue-600 focus:ring-0">
+                                    <input type="checkbox" x-model="settings.telegram_notifications_enabled" class="rounded bg-dark-900 border-slate-700 text-blue-600 focus:ring-0">
                                     <div>
                                         <span class="font-medium text-slate-200">Главный статус оповещений</span>
                                         <p class="text-[10px] text-slate-500">Включить/отключить рассылку</p>
@@ -2984,7 +2984,22 @@
                 async loadSettings() {
                     try {
                         const res = await fetch('/api/settings');
-                        this.settings = await res.json();
+                        const data = await res.json();
+                        const boolKeys = [
+                            'proxy_bind_to_profile',
+                            'captcha_distort_coords',
+                            'thread_auto_restart',
+                            'telegram_notify_clicks',
+                            'telegram_notify_captcha',
+                            'telegram_notify_errors',
+                            'telegram_notifications_enabled'
+                        ];
+                        for (const k of boolKeys) {
+                            if (data[k] !== undefined) {
+                                data[k] = (data[k] === '1' || data[k] === 'True' || data[k] === true);
+                            }
+                        }
+                        this.settings = data;
                     } catch(e) {}
                 },
 
