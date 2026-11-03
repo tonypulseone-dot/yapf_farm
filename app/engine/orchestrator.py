@@ -122,7 +122,7 @@ class TaskOrchestrator:
         if total_profiles < target_count and random.random() < 0.30:
             return self._create_new_profile_sync(conn, total_profiles, target_count)
 
-        # 5. Check for an available profile whose cooldown has passed (native SQLite datetime calculation)
+        # 5. Check for an unready profile whose cooldown has passed (status IN ('new', 'warming'))
         query = f"""
             SELECT * FROM profiles 
             WHERE status IN ('new', 'warming') 
@@ -138,15 +138,32 @@ class TaskOrchestrator:
             conn.close()
             return dict(row)
 
-        # 6. If no cooled-down profile exists AND total_profiles < target_count:
+        # 6. If no cooled-down unready profile exists AND total_profiles < target_count:
         # Expand the farm by creating a brand new profile!
         if total_profiles < target_count:
             return self._create_new_profile_sync(conn, total_profiles, target_count)
 
-        # 7. If reached target pool size and all are in cooldown, pick the oldest warmed profile
+        # 7. Maintenance Warming (Догрев для готовой базы):
+        # Все профили достигли целевого объема и статуса Ready (или новые на отлежке).
+        # Берем остывшие готовые профили для регулярного поддержания активности и нагула кук!
         query = f"""
             SELECT * FROM profiles 
-            WHERE status IN ('new', 'warming') AND id NOT IN ({placeholders})
+            WHERE id NOT IN ({placeholders})
+              AND (last_warmed_at IS NULL OR last_warmed_at <= datetime('now', '-' || ? || ' minutes'))
+            ORDER BY last_warmed_at ASC NULLS FIRST, cycles_completed ASC
+            LIMIT 1
+        """
+        params = list(busy_ids) + [cooldown_min] if busy_ids else [cooldown_min]
+        c.execute(query, params)
+        row = c.fetchone()
+        if row:
+            conn.close()
+            return dict(row)
+
+        # 8. Fallback: если все профили на отлежке, берем профиль с самой давней сессией нагула
+        query = f"""
+            SELECT * FROM profiles 
+            WHERE id NOT IN ({placeholders})
             ORDER BY last_warmed_at ASC NULLS FIRST 
             LIMIT 1
         """
@@ -324,21 +341,23 @@ class TaskOrchestrator:
                         
                         conn = get_db()
                         c = conn.cursor()
+                        # Сохраняем статус 'ready' для готовых профилей при догреве
+                        new_status = 'ready' if profile.get('status') == 'ready' else 'warming'
                         if ok:
                             c.execute("""
                                 UPDATE profiles 
                                 SET cycles_completed = cycles_completed + 1, 
                                     last_warmed_at = CURRENT_TIMESTAMP, 
-                                    status = 'warming'
+                                    status = ?
                                 WHERE id = ?
-                            """, (profile["id"],))
+                            """, (new_status, profile["id"]))
                         else:
                             c.execute("""
                                 UPDATE profiles 
                                 SET last_warmed_at = CURRENT_TIMESTAMP, 
-                                    status = 'warming'
+                                    status = ?
                                 WHERE id = ?
-                            """, (profile["id"],))
+                            """, (new_status, profile["id"]))
                         conn.commit()
                         conn.close()
                     finally:
@@ -360,6 +379,16 @@ class TaskOrchestrator:
                 self.busy_profiles.discard(profile_id)
             if thread_counted:
                 self.stats["active_threads"] = max(0, self.stats.get("active_threads", 1) - 1)
+
+    async def _safe_worker_wrapper(self, stagger_delay: float, timeout_sec: float):
+        try:
+            await asyncio.wait_for(self.execute_worker_task(stagger_delay=stagger_delay), timeout=timeout_sec)
+        except asyncio.TimeoutError:
+            logger.warning(f"Worker task timed out after {int(timeout_sec)}s, thread released")
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Worker task uncaught error: {e}")
 
     async def main_loop(self):
         """Continuous orchestrator loop with responsive worker launches."""
@@ -385,9 +414,10 @@ class TaskOrchestrator:
                 slots = current_max - len(self.active_tasks)
                 if slots > 0:
                     launch_interval = float(get_setting("thread_launch_interval_sec", "1.5"))
+                    timeout_sec = float(get_setting("thread_max_lifetime_min", "20")) * 60.0
                     for i in range(slots):
                         stagger = i * launch_interval
-                        t = asyncio.create_task(self.execute_worker_task(stagger_delay=stagger))
+                        t = asyncio.create_task(self._safe_worker_wrapper(stagger_delay=stagger, timeout_sec=timeout_sec))
                         self.active_tasks.add(t)
 
                 await asyncio.sleep(1.0)
