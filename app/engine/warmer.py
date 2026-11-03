@@ -57,14 +57,6 @@ POPULAR_METRIKA_SITES = [
     "https://irecommend.ru"
 ]
 
-MAPS_QUERIES = [
-    "аптека круглосуточная рядом",
-    "кофейня поблизости",
-    "продуктовый супермаркет",
-    "автосервис шиномонтаж",
-    "пункт выдачи заказов озон вайлдберриз"
-]
-
 async def _warm_step_yandex_search(page, profile_name: str, query: str) -> bool:
     """One search session on ya.ru with SERP scroll and organic click."""
     try:
@@ -173,84 +165,32 @@ async def _warm_step_direct_site(page, profile_name: str, site_url: str) -> bool
         logger.debug(f"[{profile_name}] Direct site visit error: {e}")
         return False
 
-async def _warm_step_yandex_dzen(page, profile_name: str) -> bool:
-    """Browsing Yandex Dzen news and feed."""
-    try:
-        live_logger.add("WARM", profile_name, "Нагул по Яндекс Дзену (dzen.ru): лента статей и рекомендаций")
-        await page.goto("https://dzen.ru", wait_until="domcontentloaded", timeout=25000)
-        await asyncio.sleep(random.uniform(2.0, 4.0))
-
-        # Scroll feed
-        for _ in range(random.randint(3, 5)):
-            if page.is_closed():
-                break
-            await human_scroll(page, random.randint(250, 600))
-            await asyncio.sleep(random.uniform(1.5, 3.0))
-
-        return True
-    except Exception as e:
-        logger.debug(f"[{profile_name}] Dzen visit error: {e}")
-        return False
-
-async def _warm_step_yandex_maps(page, profile_name: str) -> bool:
-    """Interacting with Yandex Maps."""
-    try:
-        query = random.choice(MAPS_QUERIES)
-        live_logger.add("WARM", profile_name, f"Нагул по Яндекс Картам: поиск организаций «{query}»")
-        await page.goto("https://yandex.ru/maps", wait_until="domcontentloaded", timeout=25000)
-        await asyncio.sleep(random.uniform(2.0, 4.0))
-
-        search_inp = "input.input__control"
-        try:
-            await page.wait_for_selector(search_inp, timeout=6000)
-            await human_type(page, search_inp, query)
-            await page.keyboard.press("Enter")
-            await asyncio.sleep(random.uniform(3.0, 6.0))
-            # Scroll results panel
-            await human_scroll(page, random.randint(200, 400))
-        except Exception:
-            pass
-
-        return True
-    except Exception as e:
-        logger.debug(f"[{profile_name}] Maps visit error: {e}")
-        return False
-
 async def run_warming_cycle(page, profile_id: int, profile_name: str) -> bool:
     """
-    Executes a comprehensive, multi-step warming cycle matching AlpineSoft:
+    Executes a clean, high-trust warming cycle matching recommended AlpineSoft best practices:
     - 3 to 5 search queries in Yandex with organic SERP clicks
     - 3 to 5 direct visits to popular Russian sites (generating Metrika/Google cookies)
-    - Random visits to Yandex Dzen / Yandex Maps
+    - Excludes heavy/risky services (Yandex Maps / Dzen) to avoid anti-fraud triggers & CPU load
     """
     num_queries = random.randint(3, 5)
     num_direct = random.randint(3, 5)
 
-    live_logger.add("WARM", profile_name, f"Старт расширенного цикла нагула (Alpine-style: {num_queries} запросов + {num_direct} сайтов)")
+    live_logger.add("WARM", profile_name, f"Старт чистого цикла нагула ({num_queries} запросов + {num_direct} сайтов с Метрикой)")
     
-    # 1. Execute search queries
+    # 1. Execute informational search queries in Yandex
     selected_queries = random.sample(INFORMATIONAL_QUERIES, min(num_queries, len(INFORMATIONAL_QUERIES)))
     for idx, q in enumerate(selected_queries, 1):
         live_logger.add("WARM", profile_name, f"Поисковая сессия {idx}/{num_queries}")
         await _warm_step_yandex_search(page, profile_name, q)
         await asyncio.sleep(random.uniform(2.0, 4.5))
 
-    # 2. Random chance (35%) to visit Yandex Dzen or Maps
-    service_roll = random.random()
-    if service_roll < 0.20:
-        await _warm_step_yandex_dzen(page, profile_name)
-        await asyncio.sleep(random.uniform(2.0, 4.0))
-    elif service_roll < 0.35:
-        await _warm_step_yandex_maps(page, profile_name)
-        await asyncio.sleep(random.uniform(2.0, 4.0))
-
-    # 3. Execute direct site visits
+    # 2. Execute direct visits to top sites with Yandex.Metrika
     selected_sites = random.sample(POPULAR_METRIKA_SITES, min(num_direct, len(POPULAR_METRIKA_SITES)))
     for idx, site in enumerate(selected_sites, 1):
         live_logger.add("WARM", profile_name, f"Прямой визит {idx}/{num_direct}")
         await _warm_step_direct_site(page, profile_name, site)
         await asyncio.sleep(random.uniform(2.0, 4.0))
 
-    live_logger.add("SUCCESS", profile_name, f"Расширенный цикл нагула завершен ({num_queries} запросов, {num_direct} сайтов). Куки сохранены!")
-    logger.info(f"[{profile_name}] Multi-step warming cycle completed successfully!")
+    live_logger.add("SUCCESS", profile_name, f"Цикл нагула успешно завершен ({num_queries} запросов, {num_direct} сайтов). Куки сохранены!")
+    logger.info(f"[{profile_name}] Clean warming cycle completed successfully!")
     return True
