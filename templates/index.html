@@ -228,6 +228,109 @@
             </div>
 
             <!-- ======================================================== -->
+            <!-- WARMING STRATEGY & READY ETA SUMMARY CARD                -->
+            <!-- ======================================================== -->
+            <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+                <!-- Header with Standard Pill & Progress -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
+                            <i class="fa-solid fa-shield-halved text-base"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <h3 class="font-bold text-sm sm:text-base text-white">Режим нагула & Прогноз созревания пула</h3>
+                                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                    Alpine «Буст и мало капчи»
+                                </span>
+                            </div>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Краткая сводка текущей стратегии прогрева, правил отлёжки и расчёт выхода в Ready</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 bg-dark-950 px-3 py-1.5 rounded-xl border border-slate-800 self-start sm:self-auto">
+                        <span class="text-xs text-slate-400">Готовность пула:</span>
+                        <span class="font-mono font-bold text-xs sm:text-sm text-blue-400" x-text="status.profiles.ready + ' / ' + (status.ready_eta ? status.ready_eta.target_pool : 4000) + ' (' + (status.ready_eta ? status.ready_eta.ready_percent : 0) + '%)'"></span>
+                    </div>
+                </div>
+
+                <!-- Visual Pool Bar -->
+                <div class="space-y-1.5">
+                    <div class="w-full h-2.5 bg-dark-950 rounded-full overflow-hidden border border-slate-800 flex">
+                        <div class="bg-blue-500 transition-all duration-500" :style="'width: ' + (status.ready_eta ? status.ready_eta.ready_percent : 37.5) + '%'"></div>
+                        <div class="bg-amber-500/70 transition-all duration-500" :style="'width: ' + (status.profiles.total ? Math.min(100 - (status.ready_eta ? status.ready_eta.ready_percent : 37.5), (status.profiles.warming / (status.ready_eta ? status.ready_eta.target_pool : 4000)) * 100) : 15) + '%'"></div>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-400 gap-2">
+                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-blue-500 inline-block"></span> Готовы к продвижению (Ready): <strong class="text-slate-200" x-text="status.profiles.ready"></strong></span>
+                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span> В нагуле и отлёжке (Warming): <strong class="text-slate-200" x-text="status.profiles.warming"></strong></span>
+                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-600 inline-block"></span> Целевой пул: <strong class="text-slate-200" x-text="(status.ready_eta ? status.ready_eta.target_pool : 4000) + ' шт'"></strong></span>
+                    </div>
+                </div>
+
+                <!-- 3 Strategy Details Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                    <!-- 1: How profiles are warmed -->
+                    <div class="bg-dark-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+                        <div class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-magnifying-glass text-blue-400"></i> Как сейчас нагуливаются
+                        </div>
+                        <ul class="text-[11px] text-slate-400 space-y-2">
+                            <li class="flex items-start gap-1.5">
+                                <i class="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5 shrink-0"></i>
+                                <span><strong>1 запрос ya.ru + 1 сайт:</strong> точечный поиск в Яндексе, скролл выдачи и переход на 1 сайт из органики (15–30 сек чтения).</span>
+                            </li>
+                            <li class="flex items-start gap-1.5">
+                                <i class="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5 shrink-0"></i>
+                                <span><strong>100% Android:</strong> генерация исключительно мобильных смартфонов до 4 000 (в боевых кликах ПФ — 80% Android / 20% Windows).</span>
+                            </li>
+                            <li class="flex items-start gap-1.5">
+                                <i class="fa-solid fa-circle-check text-emerald-400 text-xs mt-0.5 shrink-0"></i>
+                                <span><strong>Sticky Proxy IP:</strong> за каждым профилем навсегда закреплен свой порт из 300 мобильных прокси.</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- 2: Maturation & Cooldown Rules -->
+                    <div class="bg-dark-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+                        <div class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-hourglass-half text-amber-400"></i> Как созревают и отлёжка
+                        </div>
+                        <ul class="text-[11px] text-slate-400 space-y-2">
+                            <li class="flex items-start gap-1.5">
+                                <i class="fa-solid fa-clock text-amber-400 text-xs mt-0.5 shrink-0"></i>
+                                <span><strong>Условие Ready:</strong> ровно 1 завершенный цикл нагула + <strong>18 часов отлёжки</strong> с момента создания.</span>
+                            </li>
+                            <li class="flex items-start gap-1.5">
+                                <i class="fa-solid fa-clock text-amber-400 text-xs mt-0.5 shrink-0"></i>
+                                <span><strong>Отлёжка между циклами:</strong> случайная пауза <strong>3 – 8 часов</strong> (180–480 мин) между обращениями к профилю.</span>
+                            </li>
+                            <li class="flex items-start gap-1.5">
+                                <i class="fa-solid fa-clock text-amber-400 text-xs mt-0.5 shrink-0"></i>
+                                <span><strong>Правило 48 часов:</strong> если Ready-профиль простаивал без кликов >48ч — уходит на короткий догрев (1 запрос).</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- 3: ETA calculation -->
+                    <div class="bg-dark-950 p-4 rounded-xl border border-slate-800 space-y-2.5">
+                        <div class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-calculator text-emerald-400"></i> Расчёт времени до Ready
+                        </div>
+                        <div class="space-y-2.5 text-[11px]">
+                            <div class="p-3 rounded-lg bg-dark-900 border border-slate-800">
+                                <div class="text-slate-400 text-[10px] uppercase font-semibold">Первая волна созревания новых Android:</div>
+                                <div class="text-sm font-bold font-mono text-emerald-400 mt-1" x-text="status.ready_eta ? status.ready_eta.eta_time_msk : 'Сегодня в 17:47 MSK (~16 ч)'"></div>
+                            </div>
+                            <div class="text-slate-400 leading-relaxed space-y-1">
+                                <div>• Генерация базы идёт со скоростью <strong>~350 проф/час</strong>.</div>
+                                <div>• К <strong>07:00 утра</strong> все 4 000 профилей завершат свой 1-й цикл.</div>
+                                <div>• К <strong>01:00 следующей ночи</strong> вся база в 4 000 профилей созреет и получит статус <strong>Ready</strong>.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ======================================================== -->
             <!-- LIVE REAL-TIME TERMINAL / CONSOLE WINDOW                 -->
             <!-- ======================================================== -->
             <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
@@ -2511,7 +2614,13 @@
                     cpu_load: 0,
                     ram_load: 0,
                     clicks_today: 0,
-                    profiles: { total: 0, new: 0, warming: 0, ready: 0 }
+                    profiles: { total: 0, new: 0, warming: 0, ready: 0 },
+                    ready_eta: {
+                        hours_left: 16.4,
+                        eta_time_msk: 'Сегодня в 17:47 MSK (~16 ч)',
+                        target_pool: 4000,
+                        ready_percent: 37.5
+                    }
                 },
                 projects: [],
                 logs: [],

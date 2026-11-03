@@ -6,7 +6,7 @@ import psutil
 import time
 import subprocess
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, Form
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
@@ -126,6 +126,36 @@ async def get_status():
     # Total projects
     c.execute("SELECT COUNT(*) as cnt FROM projects WHERE is_active = 1")
     projects_cnt = c.fetchone()["cnt"]
+
+    # Ready ETA Calculation
+    c.execute("SELECT MIN(created_at) as earliest_warming FROM profiles WHERE status = 'warming'")
+    row_earliest = c.fetchone()
+    earliest_warming = row_earliest["earliest_warming"] if row_earliest else None
+
+    ready_eta_hours = 0.0
+    ready_eta_time_str = "Все профили готовы"
+    target_pool = int(get_setting("target_profiles_count", "4000"))
+    min_age_h = float(get_setting("min_ready_age_hours", "18"))
+
+    if earliest_warming:
+        try:
+            created_dt = datetime.strptime(earliest_warming[:19], "%Y-%m-%d %H:%M:%S")
+            ready_dt_utc = created_dt + timedelta(hours=min_age_h)
+            now_utc = datetime.utcnow()
+            diff_sec = (ready_dt_utc - now_utc).total_seconds()
+            if diff_sec > 0:
+                ready_eta_hours = round(diff_sec / 3600.0, 1)
+                ready_dt_msk = ready_dt_utc + timedelta(hours=3)
+                ready_eta_time_str = f"Сегодня в {ready_dt_msk.strftime('%H:%M')} MSK (~{ready_eta_hours} ч)"
+            else:
+                ready_eta_time_str = "Первая волна созрела (переходит в Ready)"
+        except Exception:
+            ready_eta_time_str = "Расчёт времени..."
+    elif prof_stats.get("warming", 0) == 0 and prof_stats.get("new", 0) == 0:
+        ready_eta_time_str = "База полностью готова"
+
+    ready_count = prof_stats.get("ready", 0)
+    ready_percent = round((ready_count / max(1, target_pool)) * 100, 1)
     conn.close()
 
     cpu_usage = psutil.cpu_percent(interval=None)
@@ -147,6 +177,20 @@ async def get_status():
             "new": prof_stats.get("new", 0),
             "warming": prof_stats.get("warming", 0),
             "ready": prof_stats.get("ready", 0)
+        },
+        "ready_eta": {
+            "hours_left": ready_eta_hours,
+            "eta_time_msk": ready_eta_time_str,
+            "target_pool": target_pool,
+            "ready_count": ready_count,
+            "warming_count": prof_stats.get("warming", 0),
+            "new_count": prof_stats.get("new", 0),
+            "ready_percent": ready_percent,
+            "standard_name": "Alpine «Буст и мало капчи»",
+            "session_format": "1 запрос ya.ru + 1 сайт из выдачи",
+            "cooldown": "3–8 часов (180–480 мин)",
+            "idle_re_warm": "Донагул через 48 часов простоя",
+            "ready_threshold": f"1 цикл + {int(min_age_h)}ч отлёжки"
         }
     }
 
