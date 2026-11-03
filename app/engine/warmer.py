@@ -167,30 +167,18 @@ async def _warm_step_direct_site(page, profile_name: str, site_url: str) -> bool
 
 async def run_warming_cycle(page, profile_id: int, profile_name: str) -> bool:
     """
-    Executes a clean, high-trust warming cycle matching recommended AlpineSoft best practices:
-    - 3 to 5 search queries in Yandex with organic SERP clicks
-    - 3 to 5 direct visits to popular Russian sites (generating Metrika/Google cookies)
-    - Excludes heavy/risky services (Yandex Maps / Dzen) to avoid anti-fraud triggers & CPU load
+    Executes a high-efficiency warming cycle matching AlpineSoft 'Буст и мало капчи' standard:
+    - Exactly 1 informational search query on ya.ru
+    - Exactly 1 organic SERP click to a site with natural browsing & Metrika cookie collection
+    - Ready status achieved after 1 cycle + 18h resting age
+    - Minimal captcha exposure, low CPU load, fastest profile generation throughput
     """
-    num_queries = random.randint(3, 5)
-    num_direct = random.randint(3, 5)
+    q = random.choice(INFORMATIONAL_QUERIES)
+    live_logger.add("WARM", profile_name, f"Старт нагула по стандарту Alpine «Буст и мало капчи» (1 запрос + 1 сайт): «{q}»")
 
-    live_logger.add("WARM", profile_name, f"Старт чистого цикла нагула ({num_queries} запросов + {num_direct} сайтов с Метрикой)")
-    
-    # 1. Execute informational search queries in Yandex
-    selected_queries = random.sample(INFORMATIONAL_QUERIES, min(num_queries, len(INFORMATIONAL_QUERIES)))
-    for idx, q in enumerate(selected_queries, 1):
-        live_logger.add("WARM", profile_name, f"Поисковая сессия {idx}/{num_queries}")
-        await _warm_step_yandex_search(page, profile_name, q)
-        await asyncio.sleep(random.uniform(2.0, 4.5))
-
-    # 2. Execute direct visits to top sites with Yandex.Metrika
-    selected_sites = random.sample(POPULAR_METRIKA_SITES, min(num_direct, len(POPULAR_METRIKA_SITES)))
-    for idx, site in enumerate(selected_sites, 1):
-        live_logger.add("WARM", profile_name, f"Прямой визит {idx}/{num_direct}")
-        await _warm_step_direct_site(page, profile_name, site)
-        await asyncio.sleep(random.uniform(2.0, 4.0))
-
-    live_logger.add("SUCCESS", profile_name, f"Цикл нагула успешно завершен ({num_queries} запросов, {num_direct} сайтов). Куки сохранены!")
-    logger.info(f"[{profile_name}] Clean warming cycle completed successfully!")
-    return True
+    ok = await _warm_step_yandex_search(page, profile_name, q)
+    if ok:
+        live_logger.add("SUCCESS", profile_name, "Цикл нагула завершен (1 запрос + 1 сайт). Куки сохранены, профиль уходит на отлёжку!")
+        logger.info(f"[{profile_name}] Standard 'Boost & Low Captcha' cycle completed successfully!")
+        return True
+    return False

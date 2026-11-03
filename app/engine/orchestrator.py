@@ -80,9 +80,9 @@ class TaskOrchestrator:
         conn = get_db()
         c = conn.cursor()
         
-        # 1. Check profiles ready for graduation: Warming with age >= 18h and cycles >= 2
+        # 1. Check profiles ready for graduation: Warming with age >= 18h and cycles >= 1 (Alpine Standard)
         min_age_h = str(get_setting("min_ready_age_hours", "18"))
-        min_cycles = int(get_setting("warming_cycles_to_ready", "2"))
+        min_cycles = int(get_setting("warming_cycles_to_ready", "1"))
         c.execute("""
             UPDATE profiles 
             SET status = 'ready' 
