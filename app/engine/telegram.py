@@ -342,7 +342,7 @@ async def telegram_bot_polling_loop():
                 target_hour = int(get_setting("telegram_daily_report_hour", "21"))
                 today_str = now.strftime("%Y-%m-%d")
                 last_sent_date = get_setting("telegram_last_report_date", "")
-                if now.hour == target_hour and last_sent_date != today_str:
+                if now.hour >= target_hour and last_sent_date != today_str:
                     set_setting("telegram_last_report_date", today_str)
                     await send_daily_summary()
             except Exception as sch_err:
