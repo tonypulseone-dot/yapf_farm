@@ -131,6 +131,13 @@
                     <i class="fa-solid fa-folder-tree"></i> Проекты & Ключи
                     <span class="bg-slate-800 text-[11px] px-2 py-0.5 rounded-full font-mono" x-text="projects.length"></span>
                 </button>
+                <button @click="currentTab = 'positions'; onOpenPositionsTab()" 
+                        :class="currentTab === 'positions' ? 'border-rose-500 text-rose-400 bg-rose-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-900'"
+                        class="py-2.5 px-3.5 sm:px-4 font-medium text-xs sm:text-sm border-b-2 rounded-t-lg flex items-center gap-2 transition">
+                    <span class="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">Я</span>
+                    <span>Проверка позиций</span>
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">ТОП-100</span>
+                </button>
                 <button @click="currentTab = 'logs'" 
                         :class="currentTab === 'logs' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-900'"
                         class="py-2.5 px-3.5 sm:px-4 font-medium text-xs sm:text-sm border-b-2 rounded-t-lg flex items-center gap-2 transition">
@@ -569,6 +576,406 @@
                     </div>
                 </template>
             </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- TAB: POSITIONS & RANK CHECKER (TOP-100)    -->
+        <!-- ========================================== -->
+        <div x-show="currentTab === 'positions'" class="space-y-4 sm:space-y-6" x-cloak>
+            
+            <!-- CARD 1: RUN CHECK FORM (MATCHING ALPINE SCREENSHOT 1) -->
+            <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-sm space-y-5">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-rose-600/90 text-white font-extrabold text-xl flex items-center justify-center shadow-lg shadow-rose-600/20 shrink-0">
+                            Я
+                        </div>
+                        <div>
+                            <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                                Проверка позиций
+                            </h2>
+                            <p class="text-xs text-slate-400">Органическая выдача Яндекса, Топ-100</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 self-start sm:self-auto">
+                        <button @click="openAddProject()" class="px-3.5 py-2 bg-dark-950 hover:bg-dark-850 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-plus text-blue-400"></i> Добавить проект
+                        </button>
+                        <button @click="currentTab = 'manual'" class="px-3.5 py-2 bg-dark-950 hover:bg-dark-850 text-slate-400 hover:text-slate-200 border border-slate-800 rounded-xl text-xs font-medium flex items-center gap-1.5 transition">
+                            <i class="fa-regular fa-circle-question"></i> Инструкция
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Form 2-Column Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                    <!-- Left Column: Parameters -->
+                    <div class="lg:col-span-7 space-y-4">
+                        <div>
+                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">ПРОЕКТ</label>
+                            <select x-model="selectedPositionProjectId" @change="onPositionProjectChange()"
+                                    class="w-full bg-dark-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-200 focus:border-blue-500 focus:outline-none">
+                                <option value="">-- Выберите проект для проверки --</option>
+                                <template x-for="p in projects" :key="p.id">
+                                    <option :value="p.id" x-text="p.name + ' (' + p.domain + ')'"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Регион проверки</label>
+                                <input type="text" x-model="positionCheckRegion" placeholder="Начните вводить город или код (213 - Москва)"
+                                       class="w-full bg-dark-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:border-blue-500 focus:outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Устройство выдачи</label>
+                                <select x-model="positionCheckDevice"
+                                        class="w-full bg-dark-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:border-blue-500 focus:outline-none">
+                                    <option value="desktop">Десктоп</option>
+                                    <option value="android">Мобильные (Android)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="pt-1">
+                            <label class="flex items-start gap-2.5 cursor-pointer">
+                                <input type="checkbox" x-model="positionCheckFresh" class="mt-0.5 rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
+                                <div>
+                                    <span class="text-xs font-medium text-slate-200">Свежая выдача</span>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">Собрать результаты заново, без кэша API.</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Cost & Action Button -->
+                    <div class="lg:col-span-5 bg-dark-950 p-4 sm:p-5 rounded-2xl border border-slate-800/90 space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                            <span class="text-xs text-slate-400">Максимальная стоимость</span>
+                            <span class="text-sm font-bold font-mono text-emerald-400">0 ₽ (Бесплатно)</span>
+                        </div>
+
+                        <div class="text-xs text-slate-300">
+                            <template x-if="!selectedPositionProjectId">
+                                <span class="text-slate-500">Нет проекта для проверки</span>
+                            </template>
+                            <template x-if="selectedPositionProjectId">
+                                <div class="flex items-center justify-between">
+                                    <span>Запросов к замеру:</span>
+                                    <span class="font-mono font-bold text-blue-400" x-text="positionsList.length + ' шт.'"></span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <!-- Progress Bar during active checking -->
+                        <div x-show="posProgress.is_running" class="space-y-1.5 pt-1" x-cloak>
+                            <div class="flex justify-between text-[11px] text-slate-400">
+                                <span x-text="posProgress.last_log"></span>
+                                <span class="font-mono font-bold text-blue-400" x-text="posProgress.percent + '%'"></span>
+                            </div>
+                            <div class="w-full h-1.5 bg-dark-900 rounded-full overflow-hidden border border-slate-800">
+                                <div class="h-full bg-blue-500 transition-all duration-300" :style="'width: ' + posProgress.percent + '%'"></div>
+                            </div>
+                        </div>
+
+                        <!-- Main Action Button -->
+                        <div>
+                            <template x-if="!selectedPositionProjectId">
+                                <button @click="openAddProject()" class="w-full py-3 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/30 rounded-xl font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-2">
+                                    <i class="fa-solid fa-plus"></i> Сначала добавьте проект
+                                </button>
+                            </template>
+                            <template x-if="selectedPositionProjectId">
+                                <button @click="runPositionsCheck()" :disabled="posProgress.is_running"
+                                        class="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/50 text-white rounded-xl font-bold text-xs sm:text-sm shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 active:scale-95 transition">
+                                    <template x-if="posProgress.is_running">
+                                        <span class="flex items-center gap-2">
+                                            <i class="fa-solid fa-spinner animate-spin"></i> Съем позиций... (<span x-text="posProgress.current + '/' + posProgress.total"></span>)
+                                        </span>
+                                    </template>
+                                    <template x-if="!posProgress.is_running">
+                                        <span class="flex items-center gap-2">
+                                            <i class="fa-solid fa-crosshairs"></i> Запустить проверку позиций
+                                        </span>
+                                    </template>
+                                </button>
+                            </template>
+                        </div>
+
+                        <p class="text-[11px] text-slate-500 leading-relaxed">
+                            С баланса Alpine только за результат, включая «не в Топ-100». В вашей ферме съём позиций 100% бесплатный через собственный пул мобильных прокси.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 2: MONITORING KPI OVERVIEW (MATCHING ALPINE SCREENSHOT 2) -->
+            <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
+                            <i class="fa-solid fa-chart-line text-sm"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm sm:text-base text-white">Мониторинг позиций и ключевых показателей</h3>
+                            <p class="text-[11px] text-slate-400">Данные о позициях обновляются по мере использования ключевых запросов в продвижении и при съеме.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2.5 self-start sm:self-auto">
+                        <button @click="loadPositionsData()" class="px-3 py-1.5 bg-dark-950 hover:bg-dark-850 text-slate-300 rounded-lg text-xs font-medium border border-slate-800 flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-arrows-rotate"></i> Обновить данные
+                        </button>
+                        <select x-model="selectedPositionProjectId" @change="onPositionProjectChange()"
+                                class="bg-dark-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none">
+                            <option value="">Все домены (общее)</option>
+                            <template x-for="p in projects" :key="p.id">
+                                <option :value="p.id" x-text="p.domain"></option>
+                            </template>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- KPI Tiles Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-sm shrink-0">
+                            <i class="fa-solid fa-globe"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold">ДОМЕНЫ</div>
+                            <div class="text-xl font-bold font-mono text-slate-200 mt-0.5" x-text="positionsKpi.total_domains"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-sm shrink-0">
+                            <i class="fa-solid fa-chart-line"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold">СРЕДНЯЯ ПОЗИЦИЯ</div>
+                            <div class="text-xl font-bold font-mono text-emerald-400 mt-0.5" x-text="positionsKpi.avg_position || '0'"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-sm shrink-0 font-bold">
+                            🥇
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold">В ТОП-3</div>
+                            <div class="text-xl font-bold font-mono text-amber-400 mt-0.5" x-text="positionsKpi.top_3"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-sm shrink-0 font-bold">
+                            🥈
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold">В ТОП-10</div>
+                            <div class="text-xl font-bold font-mono text-blue-400 mt-0.5" x-text="positionsKpi.top_10"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center text-sm shrink-0 font-bold">
+                            🥉
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold">В ТОП-50</div>
+                            <div class="text-xl font-bold font-mono text-purple-400 mt-0.5" x-text="positionsKpi.top_50"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center text-sm shrink-0">
+                            <i class="fa-solid fa-arrow-down-wide-short"></i>
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold">ВНЕ ТОП-100</div>
+                            <div class="text-xl font-bold font-mono text-slate-400 mt-0.5" x-text="positionsKpi.out_of_top"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARD 3: KEYWORDS & POSITIONS TABLE (MATCHING ALPINE SCREENSHOT 1) -->
+            <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 font-bold">
+                            山
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm sm:text-base text-white">Запросы и позиции</h3>
+                            <p class="text-[11px] text-slate-400">История выбранного проекта</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 self-start sm:self-auto">
+                        <button @click="openAddKeywordModalForPos()" 
+                                :disabled="!selectedPositionProjectId"
+                                class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/40 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-blue-600/20 transition">
+                            <i class="fa-solid fa-plus"></i> Добавить запросы
+                        </button>
+                        <button @click="loadPositionsData()" class="px-3 py-1.5 bg-dark-950 hover:bg-dark-850 text-slate-300 rounded-lg text-xs font-medium border border-slate-800 flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-arrows-rotate"></i> Обновить
+                        </button>
+                        <button @click="exportPositionsCSV()" 
+                                :disabled="!selectedPositionProjectId || positionsList.length === 0"
+                                class="px-3 py-1.5 bg-dark-950 hover:bg-dark-850 disabled:opacity-40 text-slate-300 rounded-lg text-xs font-medium border border-slate-800 flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-file-csv text-emerald-400"></i> Экспорт CSV
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters Bar (Period, Sort, Search) -->
+                <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <select x-model="positionDays" @change="loadPositionsData()"
+                                class="bg-dark-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none">
+                            <option value="7">7 дней</option>
+                            <option value="14">14 дней</option>
+                            <option value="30">30 дней</option>
+                        </select>
+
+                        <select x-model="positionSort" @change="loadPositionsData()"
+                                class="bg-dark-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none">
+                            <option value="best">Сначала лучшие</option>
+                            <option value="worst">Сначала худшие</option>
+                            <option value="growth">Сначала выросшие (▲)</option>
+                            <option value="drop">Сначала упавшие (▼)</option>
+                            <option value="alpha">По алфавиту</option>
+                        </select>
+                    </div>
+
+                    <div class="relative sm:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                        <input type="text" x-model="positionSearch" @input.debounce.300ms="loadPositionsData()"
+                               placeholder="Запрос или URL"
+                               class="w-full bg-dark-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:border-blue-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Empty State (Matching Alpine Screenshot 1) -->
+                <div x-show="!selectedPositionProjectId || positionsList.length === 0" class="py-12 text-center space-y-3" x-cloak>
+                    <div class="w-12 h-12 rounded-2xl bg-slate-800/60 text-slate-400 flex items-center justify-center mx-auto text-xl border border-slate-800">
+                        <i class="fa-solid fa-database"></i>
+                    </div>
+                    <div class="text-sm font-medium text-slate-300">
+                        Добавьте сайт и запросы для первого замера.
+                    </div>
+                    <div>
+                        <button @click="openAddProject()" class="text-xs text-blue-400 hover:text-blue-300 font-semibold underline underline-offset-4">
+                            Создать проект
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Table with Queries & Positions -->
+                <div x-show="selectedPositionProjectId && positionsList.length > 0" class="overflow-x-auto" x-cloak>
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-dark-950 text-slate-400 font-semibold border-b border-slate-800">
+                            <tr>
+                                <th class="py-3 px-4">Ключевой запрос</th>
+                                <th class="py-3 px-3">Регион</th>
+                                <th class="py-3 px-3">Устройство</th>
+                                <th class="py-3 px-3 text-center">Позиция Топ-100</th>
+                                <th class="py-3 px-3 text-center">Динамика</th>
+                                <th class="py-3 px-4">История (замеры)</th>
+                                <th class="py-3 px-4">Релевантная страница (URL)</th>
+                                <th class="py-3 px-3">Дата замера</th>
+                                <th class="py-3 px-3 text-right">Действие</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60">
+                            <template x-for="item in positionsList" :key="item.keyword_id">
+                                <tr class="hover:bg-dark-950/60 transition">
+                                    <td class="py-3 px-4 font-medium text-slate-200">
+                                        <span x-text="item.keyword"></span>
+                                    </td>
+                                    <td class="py-3 px-3 text-slate-400 font-mono text-[11px]" x-text="'LR: ' + item.region"></td>
+                                    <td class="py-3 px-3 text-slate-400 text-[11px]">
+                                        <span class="inline-flex items-center gap-1" :class="item.device_type === 'android' ? 'text-amber-400' : 'text-blue-400'">
+                                            <i :class="item.device_type === 'android' ? 'fa-solid fa-mobile-screen' : 'fa-solid fa-desktop'"></i>
+                                            <span x-text="item.device_type === 'android' ? 'Мобильный' : 'Десктоп'"></span>
+                                        </span>
+                                    </td>
+                                    <td class="py-3 px-3 text-center">
+                                        <template x-if="item.current_position > 0 && item.current_position <= 3">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40" x-text="'#' + item.current_position"></span>
+                                        </template>
+                                        <template x-if="item.current_position > 3 && item.current_position <= 10">
+                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-blue-500/20 text-blue-300 border border-blue-500/40" x-text="'#' + item.current_position"></span>
+                                        </template>
+                                        <template x-if="item.current_position > 10 && item.current_position <= 50">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono font-bold text-xs bg-purple-500/20 text-purple-300 border border-purple-500/40" x-text="'#' + item.current_position"></span>
+                                        </template>
+                                        <template x-if="item.current_position > 50 && item.current_position <= 100">
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono font-semibold text-xs bg-slate-800 text-slate-300 border border-slate-700" x-text="'#' + item.current_position"></span>
+                                        </template>
+                                        <template x-if="item.current_position === 0">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[11px] bg-dark-950 text-slate-500 border border-slate-800">>100</span>
+                                        </template>
+                                    </td>
+                                    <td class="py-3 px-3 text-center font-mono font-bold text-xs">
+                                        <template x-if="item.diff > 0">
+                                            <span class="text-emerald-400" x-text="'▲ +' + item.diff"></span>
+                                        </template>
+                                        <template x-if="item.diff < 0">
+                                            <span class="text-rose-400" x-text="'▼ ' + item.diff"></span>
+                                        </template>
+                                        <template x-if="item.diff === 0">
+                                            <span class="text-slate-500">—</span>
+                                        </template>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <!-- Mini Sparkline dots -->
+                                        <div class="flex items-center gap-1">
+                                            <template x-for="(sp, idx) in item.sparkline" :key="idx">
+                                                <span class="w-2 h-2 rounded-full inline-block"
+                                                      :title="sp.date + ': #' + (sp.pos > 0 ? sp.pos : '>100')"
+                                                      :class="sp.pos > 0 && sp.pos <= 3 ? 'bg-amber-400' : (sp.pos > 3 && sp.pos <= 10 ? 'bg-blue-400' : (sp.pos > 10 && sp.pos <= 50 ? 'bg-purple-400' : 'bg-slate-700'))"></span>
+                                            </template>
+                                        </div>
+                                    </td>
+                                    <td class="py-3 px-4 max-w-xs truncate font-mono text-[11px]">
+                                        <template x-if="item.target_url">
+                                            <a :href="item.target_url" target="_blank" class="text-blue-400 hover:underline" x-text="item.target_url"></a>
+                                        </template>
+                                        <template x-if="!item.target_url">
+                                            <span class="text-slate-500">—</span>
+                                        </template>
+                                    </td>
+                                    <td class="py-3 px-3 text-slate-400 text-[11px] font-mono whitespace-nowrap" x-text="item.last_checked"></td>
+                                    <td class="py-3 px-3 text-right">
+                                        <button @click="checkSingleKeywordPos(item.keyword_id)" 
+                                                :disabled="posCheckingSingle === item.keyword_id"
+                                                class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-dark-850 rounded-lg transition"
+                                                title="Перепроверить позицию сейчас">
+                                            <i class="fa-solid fa-rotate" :class="posCheckingSingle === item.keyword_id ? 'fa-spin text-blue-400' : ''"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Footer Status Bar (Matching Alpine Screenshot 2) -->
+                <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
+                        <span class="text-slate-400">Данные актуальны</span>
+                        <span class="text-slate-600">|</span>
+                        <span>Последнее обновление: <span class="font-mono text-slate-300" x-text="positionsKpi.last_updated"></span></span>
+                    </span>
+                    <span class="font-mono text-slate-400" x-text="'Всего ключей в мониторинге: ' + (positionsKpi.tracked_queries || positionsList.length)"></span>
+                </div>
+            </div>
+
         </div>
 
         <!-- ========================================== -->
@@ -2654,6 +3061,36 @@
                     brand_tail: ''
                 },
 
+                // Positions (ТОП-100 Яндекс) state
+                selectedPositionProjectId: '',
+                positionCheckRegion: '',
+                positionCheckDevice: 'desktop',
+                positionCheckFresh: true,
+                positionDays: '7',
+                positionSort: 'best',
+                positionSearch: '',
+                positionsList: [],
+                positionsKpi: {
+                    total_domains: 0,
+                    avg_position: 0,
+                    top_3: 0,
+                    top_10: 0,
+                    top_50: 0,
+                    top_100: 0,
+                    out_of_top: 0,
+                    tracked_queries: 0,
+                    last_updated: 'Нет замеров'
+                },
+                posCheckingSingle: null,
+                posProgress: {
+                    is_running: false,
+                    current: 0,
+                    total: 0,
+                    percent: 0,
+                    last_log: ''
+                },
+                posProgressTimer: null,
+
                 getRegionName(code) {
                     if (!code) return 'Не выбран';
                     const c = String(code).trim();
@@ -3166,6 +3603,125 @@
                         this.tgResult = '❌ Ошибка сети: ' + e.message;
                     } finally {
                         this.tgTesting = false;
+                    }
+                },
+
+                // ==========================================
+                // POSITIONS (ТОП-100 ЯНДЕКС) METHODS
+                // ==========================================
+                async onOpenPositionsTab() {
+                    if (!this.selectedPositionProjectId && this.projects.length > 0) {
+                        this.selectedPositionProjectId = this.projects[0].id;
+                        this.positionCheckRegion = this.projects[0].default_region || '213';
+                    }
+                    await this.loadPositionsData();
+                    await this.checkPositionsProgress();
+                },
+
+                async onPositionProjectChange() {
+                    if (this.selectedPositionProjectId) {
+                        const p = this.projects.find(x => String(x.id) === String(this.selectedPositionProjectId));
+                        if (p && p.default_region) {
+                            this.positionCheckRegion = p.default_region;
+                        }
+                    }
+                    await this.loadPositionsData();
+                },
+
+                async loadPositionsData() {
+                    try {
+                        const pid = this.selectedPositionProjectId || '';
+                        const [kpiRes, dataRes] = await Promise.all([
+                            fetch('/api/positions/kpi' + (pid ? '?project_id=' + pid : '')),
+                            fetch('/api/positions/data?project_id=' + pid + '&days=' + (this.positionDays || 7) + '&sort=' + (this.positionSort || 'best') + '&search=' + encodeURIComponent(this.positionSearch || ''))
+                        ]);
+                        if (kpiRes.ok) {
+                            this.positionsKpi = await kpiRes.json();
+                        }
+                        if (dataRes.ok) {
+                            this.positionsList = await dataRes.json();
+                        }
+                    } catch(e) {
+                        console.error('Error loading positions:', e);
+                    }
+                },
+
+                async runPositionsCheck() {
+                    if (!this.selectedPositionProjectId) return;
+                    try {
+                        const res = await fetch('/api/positions/check', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                project_id: parseInt(this.selectedPositionProjectId),
+                                region: this.positionCheckRegion || '213',
+                                device_type: this.positionCheckDevice || 'desktop',
+                                fresh: !!this.positionCheckFresh
+                            })
+                        });
+                        const data = await res.json();
+                        if (data.status === 'ok') {
+                            this.startPositionsProgressPolling();
+                        } else {
+                            alert(data.message || 'Ошибка запуска съема позиций');
+                        }
+                    } catch(e) {
+                        alert('Ошибка запроса: ' + e.message);
+                    }
+                },
+
+                startPositionsProgressPolling() {
+                    if (this.posProgressTimer) clearInterval(this.posProgressTimer);
+                    this.posProgress.is_running = true;
+                    this.posProgress.percent = 5;
+                    this.posProgress.last_log = 'Инициализация парсера выдачи...';
+                    this.posProgressTimer = setInterval(async () => {
+                        await this.checkPositionsProgress();
+                    }, 2000);
+                },
+
+                async checkPositionsProgress() {
+                    try {
+                        const res = await fetch('/api/positions/progress');
+                        if (res.ok) {
+                            const data = await res.json();
+                            this.posProgress = data;
+                            if (!data.is_running && this.posProgressTimer) {
+                                clearInterval(this.posProgressTimer);
+                                this.posProgressTimer = null;
+                                await this.loadPositionsData();
+                            }
+                        }
+                    } catch(e) {}
+                },
+
+                async checkSingleKeywordPos(keywordId) {
+                    this.posCheckingSingle = keywordId;
+                    try {
+                        const res = await fetch('/api/positions/check-keyword/' + keywordId, {
+                            method: 'POST'
+                        });
+                        if (res.ok) {
+                            await this.loadPositionsData();
+                        }
+                    } catch(e) {
+                        console.error('Error checking single keyword position:', e);
+                    } finally {
+                        this.posCheckingSingle = null;
+                    }
+                },
+
+                exportPositionsCSV() {
+                    const pid = this.selectedPositionProjectId || '';
+                    const days = this.positionDays || 7;
+                    window.location.href = '/api/positions/export?project_id=' + pid + '&days=' + days;
+                },
+
+                openAddKeywordModalForPos() {
+                    if (!this.selectedPositionProjectId) return;
+                    const p = this.projects.find(x => String(x.id) === String(this.selectedPositionProjectId));
+                    if (p) {
+                        this.openAddKeyword(p);
                     }
                 }
             }

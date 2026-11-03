@@ -104,6 +104,8 @@ async def startup_event():
     init_db()
     asyncio.create_task(orchestrator.main_loop())
     asyncio.create_task(telegram_bot_polling_loop())
+    from app.engine.position_checker import position_checker
+    asyncio.create_task(position_checker.daily_scheduler_loop())
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -459,6 +461,97 @@ async def test_telegram_alert_api():
         custom_chat_id=cid
     )
     return res
+
+# ==========================================
+# POSITIONS & RANK TRACKER API (TOP-100)
+# ==========================================
+
+@app.get("/api/positions/kpi")
+async def get_positions_kpi_api(project_id: int = None):
+    from app.database import get_positions_kpi
+    return get_positions_kpi(project_id)
+
+@app.get("/api/positions/data")
+async def get_positions_data_api(project_id: int = None, days: int = 7, search: str = "", sort: str = "best"):
+    from app.database import get_project_positions
+    return get_project_positions(project_id=project_id, days=days, search=search, sort_by=sort)
+
+@app.get("/api/positions/progress")
+async def get_positions_progress_api():
+    from app.engine.position_checker import position_checker
+    return position_checker.get_progress()
+
+@app.post("/api/positions/check")
+async def run_positions_check_api(data: dict):
+    from app.engine.position_checker import position_checker
+    project_id = int(data.get("project_id", 0))
+    region = data.get("region", "").strip() or None
+    device_type = data.get("device_type", "desktop")
+    fresh = bool(data.get("fresh", True))
+    
+    if not project_id:
+        return {"status": "error", "message": "Выберите проект для проверки"}
+        
+    if position_checker.is_checking:
+        return {"status": "busy", "message": "Проверка позиций уже выполняется"}
+        
+    asyncio.create_task(position_checker.check_project_positions(
+        project_id=project_id,
+        region=region,
+        device_type=device_type,
+        fresh=fresh
+    ))
+    return {"status": "ok", "message": "Съем позиций запущен в фоне"}
+
+@app.post("/api/positions/check-keyword/{keyword_id}")
+async def check_single_keyword_api(keyword_id: int):
+    from app.engine.position_checker import position_checker
+    from app.database import get_db
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT * FROM keywords WHERE id = ?", (keyword_id,))
+    kw = c.fetchone()
+    if not kw:
+        conn.close()
+        return {"status": "error", "message": "Ключ не найден"}
+    kw_dict = dict(kw)
+    c.execute("SELECT * FROM projects WHERE id = ?", (kw_dict["project_id"],))
+    proj = c.fetchone()
+    conn.close()
+    if not proj:
+        return {"status": "error", "message": "Проект не найден"}
+        
+    res = await position_checker.check_single_keyword(
+        keyword_row=kw_dict,
+        project_row=dict(proj)
+    )
+    return {"status": "ok", "data": res}
+
+@app.get("/api/positions/export")
+async def export_positions_csv_api(project_id: int = None, days: int = 7):
+    from app.database import get_project_positions
+    import io, csv
+    from fastapi.responses import StreamingResponse
+    
+    data = get_project_positions(project_id=project_id, days=days)
+    
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=";")
+    writer.writerow(["ID", "Запрос", "Домен", "Регион", "Устройство", "Позиция ТОП-100", "Динамика", "Релевантный URL", "Дата замера"])
+    
+    for r in data:
+        pos_str = str(r["current_position"]) if r["current_position"] > 0 else ">100"
+        diff_str = f"+{r['diff']}" if r["diff"] > 0 else (str(r["diff"]) if r["diff"] < 0 else "0")
+        writer.writerow([r["keyword_id"], r["keyword"], r["domain"], r["region"], r["device_type"], pos_str, diff_str, r["target_url"], r["last_checked"]])
+        
+    output.seek(0)
+    pid_tag = f"project_{project_id}" if project_id else "all_projects"
+    filename = f"positions_{pid_tag}_{datetime.now().strftime('%Y%m%d')}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
 
 @app.get("/api/system/version")
 async def get_system_version():

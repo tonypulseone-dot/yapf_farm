@@ -349,6 +349,23 @@ class TaskOrchestrator:
                                 domain=keyword_task["domain"],
                                 solved=False
                             ))
+
+                        if res["status"] in ["success", "not_found"]:
+                            try:
+                                from app.database import record_position
+                                record_position(
+                                    keyword_id=keyword_task["id"],
+                                    project_id=keyword_task["project_id"],
+                                    keyword=keyword_task["keyword"],
+                                    domain=keyword_task["domain"],
+                                    region=keyword_task.get("geo_region", "213"),
+                                    device_type=profile["device_type"],
+                                    position=res.get("position", 0),
+                                    target_url=keyword_task.get("target_url") or "",
+                                    source="promo"
+                                )
+                            except Exception as rpe:
+                                logger.warning(f"Failed to record promo position: {rpe}")
                         conn.commit()
                         conn.close()
                     finally:
