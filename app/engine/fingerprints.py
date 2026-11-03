@@ -11,21 +11,25 @@ _DETECTED_CHROME_VERSION = None
 def get_installed_chrome_version() -> str:
     """
     Detects the real version of Chromium installed in Playwright.
-    Falls back to modern high-trust version (126.0.6478.127) if detection fails.
+    Falls back to modern high-trust version (126.0.6478.182) if detection fails.
     """
     global _DETECTED_CHROME_VERSION
     if _DETECTED_CHROME_VERSION:
         return _DETECTED_CHROME_VERSION
     
+    # Try reading version from ms-playwright directory directly without launching browser
     try:
-        from playwright.sync_api import sync_playwright
-        with sync_playwright() as p:
-            b = p.chromium.launch(headless=True)
-            v = b.version
-            b.close()
-            if v:
-                _DETECTED_CHROME_VERSION = v
-                return v
+        import glob
+        import os
+        candidates = (
+            glob.glob(r"C:\Users\Administrator\AppData\Local\ms-playwright\chromium-*\chrome-win\*.manifest") +
+            glob.glob(r"C:\Users\Administrator\AppData\Local\ms-playwright\chromium_headless_shell-*\*.manifest")
+        )
+        for c in candidates:
+            base = os.path.basename(c).replace(".manifest", "")
+            if base and "." in base and base[0].isdigit():
+                _DETECTED_CHROME_VERSION = base
+                return _DETECTED_CHROME_VERSION
     except Exception:
         pass
     

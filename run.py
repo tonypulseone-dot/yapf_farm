@@ -6,9 +6,53 @@ import shutil
 # Ensure Playwright finds Chromium across all user contexts and Windows SYSTEM service
 os.environ["PLAYWRIGHT_BROWSERS_PATH"] = r"C:\Users\Administrator\AppData\Local\ms-playwright"
 
+# Setup resilient, non-blocking logging for Windows 24/7 background service
+logs_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(logs_dir, exist_ok=True)
+service_log_path = os.path.join(logs_dir, "service.log")
+
+class SafeStreamWriter:
+    def __init__(self, stream, log_file):
+        self.stream = stream
+        self.log_file = log_file
+
+    def write(self, text):
+        if self.log_file:
+            try:
+                self.log_file.write(text)
+            except Exception:
+                pass
+        if self.stream:
+            try:
+                self.stream.write(text)
+            except Exception:
+                pass
+
+    def flush(self):
+        if self.log_file:
+            try:
+                self.log_file.flush()
+            except Exception:
+                pass
+        if self.stream:
+            try:
+                self.stream.flush()
+            except Exception:
+                pass
+
+try:
+    log_file_handle = open(service_log_path, "a", encoding="utf-8", buffering=1, errors="replace")
+    sys.stdout = SafeStreamWriter(sys.stdout, log_file_handle)
+    sys.stderr = SafeStreamWriter(sys.stderr, log_file_handle)
+except Exception:
+    pass
+
 if sys.platform == 'win32':
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
 def auto_update_on_startup():
     """
