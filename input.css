@@ -7,31 +7,54 @@ html, body {
   transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-/* Light Theme Overrides (when html does not have .dark) */
+/* ======================================================== */
+/* LIGHT THEME (when html does not have .dark / has .light) */
+/* ======================================================== */
 html:not(.dark) body {
   background-color: #f8fafc !important;
   color: #0f172a !important;
 }
 
+html:not(.dark) aside {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) aside button {
+  color: #475569 !important;
+}
+
+html:not(.dark) aside button:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html:not(.dark) aside button.border-l-4.border-blue-500,
+html:not(.dark) aside button.bg-dark-850 {
+  background-color: #eff6ff !important;
+  color: #2563eb !important;
+  border-color: #2563eb !important;
+}
+
 html:not(.dark) .bg-dark-950 {
-  background-color: #f8fafc !important;
+  background-color: #f1f5f9 !important;
 }
 
 html:not(.dark) .bg-dark-900 {
   background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
 }
 
-html:not(.dark) .bg-dark-900\/90 {
-  background-color: rgba(255, 255, 255, 0.92) !important;
-}
-
-html:not(.dark) .bg-dark-900\/95 {
+html:not(.dark) .bg-dark-900\/90,
+html:not(.dark) .bg-dark-900\/60 {
   background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: #e2e8f0 !important;
 }
 
 html:not(.dark) .bg-dark-850 {
-  background-color: #f1f5f9 !important;
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
 }
 
 html:not(.dark) .bg-dark-800 {
@@ -49,12 +72,29 @@ html:not(.dark) .hover\:bg-dark-850:hover {
 html:not(.dark) .border-slate-800,
 html:not(.dark) .border-slate-800\/80,
 html:not(.dark) .border-slate-800\/60,
+html:not(.dark) .border-slate-800\/90,
 html:not(.dark) .border-slate-700,
 html:not(.dark) .border-slate-700\/80,
 html:not(.dark) .border-slate-700\/60,
+html:not(.dark) .border-slate-700\/50,
 html:not(.dark) .border-dark-750,
 html:not(.dark) .border-dark-700 {
   border-color: #e2e8f0 !important;
+}
+
+/* Headings and titles in light mode */
+html:not(.dark) h1,
+html:not(.dark) h2,
+html:not(.dark) h3,
+html:not(.dark) h4,
+html:not(.dark) h5,
+html:not(.dark) h6 {
+  color: #0f172a !important;
+}
+
+html:not(.dark) aside .font-bold,
+html:not(.dark) header .font-bold {
+  color: #0f172a !important;
 }
 
 html:not(.dark) .text-slate-100,
@@ -69,6 +109,11 @@ html:not(.dark) .text-slate-400 {
 
 html:not(.dark) .text-slate-500 {
   color: #64748b !important;
+}
+
+/* Convert text-white on surfaces to dark text, but preserve it inside colored buttons */
+html:not(.dark) .text-white:not(button):not(.bg-blue-600):not(.bg-rose-600):not(.bg-emerald-600):not(.bg-blue-500):not(.bg-rose-500):not(.bg-emerald-500):not(.w-9):not(.w-8):not(.w-10):not(.w-7):not(.w-6):not(.w-4) {
+  color: #0f172a !important;
 }
 
 html:not(.dark) select,
@@ -97,6 +142,7 @@ html:not(.dark) select optgroup {
 html:not(.dark) #liveLogTerminal {
   background-color: #f8fafc !important;
   border-color: #e2e8f0 !important;
+  color: #0f172a !important;
 }
 html:not(.dark) #liveLogTerminal::-webkit-scrollbar-track {
   background: #f1f5f9;
@@ -107,6 +153,7 @@ html:not(.dark) #liveLogTerminal::-webkit-scrollbar-thumb {
 
 /* Light theme modals backdrop */
 html:not(.dark) .fixed.bg-black\/70,
+html:not(.dark) .fixed.bg-black\/75,
 html:not(.dark) .fixed.bg-black\/80 {
   background-color: rgba(15, 23, 42, 0.45) !important;
   backdrop-filter: blur(4px);
