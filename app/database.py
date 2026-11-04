@@ -316,6 +316,12 @@ def get_positions_kpi(project_id=None):
     c.execute(subquery, params)
     latest_rows = c.fetchall()
     
+    top_1 = sum(1 for r in latest_rows if r["position"] == 1)
+    top_2_10 = sum(1 for r in latest_rows if 2 <= r["position"] <= 10)
+    top_11_30 = sum(1 for r in latest_rows if 11 <= r["position"] <= 30)
+    top_31_50 = sum(1 for r in latest_rows if 31 <= r["position"] <= 50)
+    top_51_plus = sum(1 for r in latest_rows if r["position"] > 50 or r["position"] == 0)
+    
     top_3 = sum(1 for r in latest_rows if 1 <= r["position"] <= 3)
     top_10 = sum(1 for r in latest_rows if 1 <= r["position"] <= 10)
     top_50 = sum(1 for r in latest_rows if 1 <= r["position"] <= 50)
@@ -334,6 +340,11 @@ def get_positions_kpi(project_id=None):
     return {
         "total_domains": total_domains,
         "avg_position": avg_position,
+        "top_1": top_1,
+        "top_2_10": top_2_10,
+        "top_11_30": top_11_30,
+        "top_31_50": top_31_50,
+        "top_51_plus": top_51_plus,
         "top_3": top_3,
         "top_10": top_10,
         "top_50": top_50,

@@ -963,65 +963,82 @@
                     </div>
                 </div>
 
-                <!-- KPI Tiles Grid -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-sm shrink-0">
+                <!-- KPI Tiles Grid (Custom Top Colors: Top 1 Blue, Top 2-10 Green, Top 11-30 Yellow, Top 31-50 Purple, Top 51+ Gray, Avg Cyan) -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3">
+                    <!-- 1. Domains -->
+                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800/80 text-slate-300 flex items-center justify-center text-xs shrink-0">
                             <i class="fa-solid fa-globe"></i>
                         </div>
-                        <div>
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold">ДОМЕНЫ</div>
-                            <div class="text-xl font-bold font-mono text-slate-200 mt-0.5" x-text="positionsKpi.total_domains"></div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ДОМЕНЫ</div>
+                            <div class="text-lg sm:text-xl font-bold font-mono text-slate-200 mt-0.5" x-text="positionsKpi.total_domains"></div>
                         </div>
                     </div>
 
-                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-sm shrink-0">
+                    <!-- 2. Avg Position (CYAN / SKY - Not Green!) -->
+                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-xs shrink-0">
                             <i class="fa-solid fa-chart-line"></i>
                         </div>
-                        <div>
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold">СРЕДНЯЯ ПОЗИЦИЯ</div>
-                            <div class="text-xl font-bold font-mono text-emerald-400 mt-0.5" x-text="positionsKpi.avg_position || '0'"></div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">СРЕДНЯЯ</div>
+                            <div class="text-lg sm:text-xl font-bold font-mono text-cyan-400 mt-0.5" x-text="positionsKpi.avg_position || '0'"></div>
                         </div>
                     </div>
 
-                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-sm shrink-0 font-bold">
-                            <span class="w-6 h-6 rounded-md bg-amber-500/15 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-500/25">1</span>
+                    <!-- 3. TOP 1 (BLUE) -->
+                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/25 flex items-center justify-center text-xs shrink-0 font-bold font-mono">
+                            #1
                         </div>
-                        <div>
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold">В ТОП-3</div>
-                            <div class="text-xl font-bold font-mono text-amber-400 mt-0.5" x-text="positionsKpi.top_3"></div>
-                        </div>
-                    </div>
-
-                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-sm shrink-0 font-bold">
-                            <span class="w-6 h-6 rounded-md bg-slate-500/15 text-slate-300 font-bold text-xs flex items-center justify-center border border-slate-500/25">2</span>
-                        </div>
-                        <div>
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold">В ТОП-10</div>
-                            <div class="text-xl font-bold font-mono text-blue-400 mt-0.5" x-text="positionsKpi.top_10"></div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 1</div>
+                            <div class="text-lg sm:text-xl font-bold font-mono text-blue-400 mt-0.5" x-text="positionsKpi.top_1 || 0"></div>
                         </div>
                     </div>
 
-                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center text-sm shrink-0 font-bold">
-                            <span class="w-6 h-6 rounded-md bg-amber-700/15 text-amber-500 font-bold text-xs flex items-center justify-center border border-amber-700/25">3</span>
+                    <!-- 4. TOP 2-10 (GREEN / EMERALD) -->
+                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center text-[11px] shrink-0 font-bold font-mono">
+                            2-10
                         </div>
-                        <div>
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold">В ТОП-50</div>
-                            <div class="text-xl font-bold font-mono text-purple-400 mt-0.5" x-text="positionsKpi.top_50"></div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 2-10</div>
+                            <div class="text-lg sm:text-xl font-bold font-mono text-emerald-400 mt-0.5" x-text="positionsKpi.top_2_10 || 0"></div>
                         </div>
                     </div>
 
-                    <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center text-sm shrink-0">
+                    <!-- 5. TOP 11-30 (YELLOW / AMBER) -->
+                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center text-[10px] shrink-0 font-bold font-mono">
+                            11-30
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 11-30</div>
+                            <div class="text-lg sm:text-xl font-bold font-mono text-amber-400 mt-0.5" x-text="positionsKpi.top_11_30 || 0"></div>
+                        </div>
+                    </div>
+
+                    <!-- 6. TOP 31-50 (PURPLE / LILAC) -->
+                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/25 flex items-center justify-center text-[10px] shrink-0 font-bold font-mono">
+                            31-50
+                        </div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 31-50</div>
+                            <div class="text-lg sm:text-xl font-bold font-mono text-purple-400 mt-0.5" x-text="positionsKpi.top_31_50 || 0"></div>
+                        </div>
+                    </div>
+
+                    <!-- 7. TOP 51+ / OUT OF TOP (GRAY) -->
+                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center text-xs shrink-0">
                             <i class="fa-solid fa-arrow-down-wide-short"></i>
                         </div>
-                        <div>
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold">ВНЕ ТОП-100</div>
-                            <div class="text-xl font-bold font-mono text-slate-400 mt-0.5" x-text="positionsKpi.out_of_top"></div>
+                        <div class="min-w-0">
+                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 51+</div>
+                            <div class="text-lg sm:text-xl font-bold font-mono text-slate-400 mt-0.5" x-text="positionsKpi.top_51_plus ?? positionsKpi.out_of_top ?? 0"></div>
                         </div>
                     </div>
                 </div>
@@ -1130,19 +1147,28 @@
                                         </span>
                                     </td>
                                     <td class="py-3 px-3 text-center">
-                                        <template x-if="item.current_position > 0 && item.current_position <= 3">
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40" x-text="'#' + item.current_position"></span>
+                                        <!-- TOP 1: Blue -->
+                                        <template x-if="item.current_position === 1">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-blue-500/20 text-blue-400 border border-blue-500/40 shadow-sm">#1</span>
                                         </template>
-                                        <template x-if="item.current_position > 3 && item.current_position <= 10">
-                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-blue-500/20 text-blue-300 border border-blue-500/40" x-text="'#' + item.current_position"></span>
+                                        <!-- TOP 2-10: Green -->
+                                        <template x-if="item.current_position >= 2 && item.current_position <= 10">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm" x-text="'#' + item.current_position"></span>
                                         </template>
-                                        <template x-if="item.current_position > 10 && item.current_position <= 50">
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono font-bold text-xs bg-purple-500/20 text-purple-300 border border-purple-500/40" x-text="'#' + item.current_position"></span>
+                                        <!-- TOP 11-30: Yellow -->
+                                        <template x-if="item.current_position >= 11 && item.current_position <= 30">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-amber-500/20 text-amber-400 border border-amber-500/40" x-text="'#' + item.current_position"></span>
                                         </template>
-                                        <template x-if="item.current_position > 50 && item.current_position <= 100">
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-mono font-semibold text-xs bg-slate-800 text-slate-300 border border-slate-700" x-text="'#' + item.current_position"></span>
+                                        <!-- TOP 31-50: Purple / Lilac -->
+                                        <template x-if="item.current_position >= 31 && item.current_position <= 50">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-purple-500/20 text-purple-400 border border-purple-500/40" x-text="'#' + item.current_position"></span>
                                         </template>
-                                        <template x-if="item.current_position === 0">
+                                        <!-- TOP 51-100: Gray -->
+                                        <template x-if="item.current_position >= 51 && item.current_position <= 100">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-semibold text-xs bg-slate-800 text-slate-400 border border-slate-700/80" x-text="'#' + item.current_position"></span>
+                                        </template>
+                                        <!-- OUT OF TOP (>100): Gray -->
+                                        <template x-if="item.current_position === 0 || item.current_position > 100">
                                             <span class="inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[11px] bg-dark-950 text-slate-500 border border-slate-800">>100</span>
                                         </template>
                                     </td>
@@ -1163,7 +1189,7 @@
                                             <template x-for="(sp, idx) in item.sparkline" :key="idx">
                                                 <span class="w-2 h-2 rounded-full inline-block"
                                                       :title="sp.date + ': #' + (sp.pos > 0 ? sp.pos : '>100')"
-                                                      :class="sp.pos > 0 && sp.pos <= 3 ? 'bg-amber-400' : (sp.pos > 3 && sp.pos <= 10 ? 'bg-blue-400' : (sp.pos > 10 && sp.pos <= 50 ? 'bg-purple-400' : 'bg-slate-700'))"></span>
+                                                      :class="sp.pos === 1 ? 'bg-blue-400' : (sp.pos >= 2 && sp.pos <= 10 ? 'bg-emerald-400' : (sp.pos >= 11 && sp.pos <= 30 ? 'bg-amber-400' : (sp.pos >= 31 && sp.pos <= 50 ? 'bg-purple-400' : 'bg-slate-600')))"></span>
                                             </template>
                                         </div>
                                     </td>
@@ -3310,6 +3336,11 @@
                 positionsKpi: {
                     total_domains: 0,
                     avg_position: 0,
+                    top_1: 0,
+                    top_2_10: 0,
+                    top_11_30: 0,
+                    top_31_50: 0,
+                    top_51_plus: 0,
                     top_3: 0,
                     top_10: 0,
                     top_50: 0,

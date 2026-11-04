@@ -138,6 +138,47 @@ html:not(.dark) select optgroup {
   color: #0f172a !important;
 }
 
+/* Light mode rank badges & KPI highlights */
+html:not(.dark) .text-cyan-400 {
+  color: #0891b2 !important;
+}
+html:not(.dark) .bg-cyan-500\/10 {
+  background-color: #ecfeff !important;
+  border-color: #a5f3fc !important;
+}
+html:not(.dark) .text-blue-400 {
+  color: #2563eb !important;
+}
+html:not(.dark) .bg-blue-500\/10,
+html:not(.dark) .bg-blue-500\/20 {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+html:not(.dark) .text-emerald-400 {
+  color: #059669 !important;
+}
+html:not(.dark) .bg-emerald-500\/10,
+html:not(.dark) .bg-emerald-500\/20 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+html:not(.dark) .text-amber-400 {
+  color: #d97706 !important;
+}
+html:not(.dark) .bg-amber-500\/10,
+html:not(.dark) .bg-amber-500\/20 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+html:not(.dark) .text-purple-400 {
+  color: #9333ea !important;
+}
+html:not(.dark) .bg-purple-500\/10,
+html:not(.dark) .bg-purple-500\/20 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+
 /* Light theme terminal */
 html:not(.dark) #liveLogTerminal {
   background-color: #f8fafc !important;
