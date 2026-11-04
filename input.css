@@ -36,7 +36,11 @@ html:not(.dark) aside button.bg-dark-850 {
   border-color: #2563eb !important;
 }
 
-html:not(.dark) .bg-dark-950 {
+/* Background surfaces */
+html:not(.dark) .bg-dark-950,
+html:not(.dark) .bg-dark-950\/80,
+html:not(.dark) .bg-dark-950\/60,
+html:not(.dark) .bg-dark-950\/40 {
   background-color: #f1f5f9 !important;
 }
 
@@ -52,23 +56,54 @@ html:not(.dark) .bg-dark-900\/60 {
   border-color: #e2e8f0 !important;
 }
 
-html:not(.dark) .bg-dark-850 {
+html:not(.dark) .bg-dark-850,
+html:not(.dark) .bg-dark-850\/80,
+html:not(.dark) .bg-dark-850\/60,
+html:not(.dark) .bg-dark-850\/40 {
   background-color: #f8fafc !important;
   border-color: #e2e8f0 !important;
 }
 
 html:not(.dark) .bg-dark-800 {
   background-color: #e2e8f0 !important;
+  color: #334155 !important;
 }
 
 html:not(.dark) .hover\:bg-dark-800:hover {
   background-color: #e2e8f0 !important;
 }
 
-html:not(.dark) .hover\:bg-dark-850:hover {
-  background-color: #f1f5f9 !important;
+html:not(.dark) .hover\:bg-dark-850:hover,
+html:not(.dark) .hover\:bg-dark-850\/40:hover,
+html:not(.dark) .hover\:bg-dark-950\/60:hover,
+html:not(.dark) tr:hover {
+  background-color: #f8fafc !important;
 }
 
+/* Neutral Slate Overrides (preventing dark blobs in light mode) */
+html:not(.dark) .bg-slate-800,
+html:not(.dark) .bg-slate-800\/80,
+html:not(.dark) .bg-slate-800\/60,
+html:not(.dark) .bg-slate-900\/60 {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #334155 !important;
+}
+
+/* Table Headers in Light Mode */
+html:not(.dark) thead,
+html:not(.dark) thead.bg-dark-950\/60,
+html:not(.dark) thead.bg-dark-950\/80,
+html:not(.dark) thead.bg-dark-950 {
+  background-color: #f1f5f9 !important;
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) thead th {
+  color: #475569 !important;
+}
+
+/* Borders in Light Mode */
 html:not(.dark) .border-slate-800,
 html:not(.dark) .border-slate-800\/80,
 html:not(.dark) .border-slate-800\/60,
@@ -112,11 +147,76 @@ html:not(.dark) .text-slate-500 {
   color: #64748b !important;
 }
 
-/* Convert text-white on surfaces to dark text, but preserve it inside colored buttons */
+/* High-contrast accessible color scales in Light Theme */
+html:not(.dark) .text-cyan-400 {
+  color: #0e7490 !important;
+}
+html:not(.dark) .bg-cyan-500\/10 {
+  background-color: #ecfeff !important;
+  border-color: #a5f3fc !important;
+}
+
+html:not(.dark) .text-blue-300,
+html:not(.dark) .text-blue-400 {
+  color: #1d4ed8 !important;
+}
+html:not(.dark) .bg-blue-500\/10,
+html:not(.dark) .bg-blue-500\/15,
+html:not(.dark) .bg-blue-500\/20 {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+
+html:not(.dark) .text-emerald-300,
+html:not(.dark) .text-emerald-400 {
+  color: #047857 !important;
+}
+html:not(.dark) .bg-emerald-500\/10,
+html:not(.dark) .bg-emerald-500\/15,
+html:not(.dark) .bg-emerald-500\/20 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+}
+
+html:not(.dark) .text-amber-300,
+html:not(.dark) .text-amber-400 {
+  color: #b45309 !important;
+}
+html:not(.dark) .bg-amber-500\/10,
+html:not(.dark) .bg-amber-500\/15,
+html:not(.dark) .bg-amber-500\/20 {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+html:not(.dark) .text-purple-300,
+html:not(.dark) .text-purple-400 {
+  color: #7e22ce !important;
+}
+html:not(.dark) .bg-purple-500\/10,
+html:not(.dark) .bg-purple-500\/15,
+html:not(.dark) .bg-purple-500\/20 {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+
+html:not(.dark) .text-rose-300,
+html:not(.dark) .text-rose-400 {
+  color: #be123c !important;
+}
+html:not(.dark) .bg-rose-500\/10,
+html:not(.dark) .bg-rose-500\/15,
+html:not(.dark) .bg-rose-500\/20 {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+}
+
+/* Convert text-white on surfaces to dark text, but preserve it inside colored buttons and avatar icons */
 html:not(.dark) .text-white:not(button):not(.bg-blue-600):not(.bg-rose-600):not(.bg-emerald-600):not(.bg-blue-500):not(.bg-rose-500):not(.bg-emerald-500):not(.w-9):not(.w-8):not(.w-10):not(.w-7):not(.w-6):not(.w-4) {
   color: #0f172a !important;
 }
 
+/* Form Inputs in Light Mode */
 html:not(.dark) select,
 html:not(.dark) input[type="text"],
 html:not(.dark) input[type="number"],
@@ -139,45 +239,21 @@ html:not(.dark) select optgroup {
   color: #0f172a !important;
 }
 
-/* Light mode rank badges & KPI highlights */
-html:not(.dark) .text-cyan-400 {
-  color: #0891b2 !important;
+/* Code tags in Light Mode */
+html:not(.dark) code {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0;
 }
-html:not(.dark) .bg-cyan-500\/10 {
-  background-color: #ecfeff !important;
-  border-color: #a5f3fc !important;
-}
-html:not(.dark) .text-blue-400 {
-  color: #2563eb !important;
-}
-html:not(.dark) .bg-blue-500\/10,
-html:not(.dark) .bg-blue-500\/20 {
-  background-color: #eff6ff !important;
-  border-color: #bfdbfe !important;
-}
-html:not(.dark) .text-emerald-400 {
-  color: #059669 !important;
-}
-html:not(.dark) .bg-emerald-500\/10,
-html:not(.dark) .bg-emerald-500\/20 {
-  background-color: #ecfdf5 !important;
-  border-color: #a7f3d0 !important;
-}
-html:not(.dark) .text-amber-400 {
-  color: #d97706 !important;
-}
-html:not(.dark) .bg-amber-500\/10,
-html:not(.dark) .bg-amber-500\/20 {
-  background-color: #fffbeb !important;
-  border-color: #fde68a !important;
-}
-html:not(.dark) .text-purple-400 {
-  color: #9333ea !important;
-}
-html:not(.dark) .bg-purple-500\/10,
-html:not(.dark) .bg-purple-500\/20 {
-  background-color: #faf5ff !important;
-  border-color: #e9d5ff !important;
+
+/* Disabled buttons in Light Mode */
+html:not(.dark) button:disabled,
+html:not(.dark) button.disabled\:bg-slate-800:disabled,
+html:not(.dark) .disabled\:bg-slate-800:disabled {
+  background-color: #f1f5f9 !important;
+  color: #94a3b8 !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: none !important;
 }
 
 /* Light theme terminal */

@@ -2585,7 +2585,7 @@
     </div>
 
     <!-- Modal: Add Project -->
-    <div x-show="showAddProject" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
+    <div x-show="showAddProject" @keydown.escape.window="showAddProject = false" @click.self="showAddProject = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
         <div class="bg-dark-900 border border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-xl space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div class="flex items-center gap-2.5">
@@ -2859,7 +2859,7 @@
     </div>
 
     <!-- Modal: Add Keywords to Existing Project -->
-    <div x-show="showAddKeyword" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
+    <div x-show="showAddKeyword" @keydown.escape.window="showAddKeyword = false" @click.self="showAddKeyword = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
         <div class="bg-dark-900 border border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-lg space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div>
@@ -3101,7 +3101,7 @@
     </div>
 
     <!-- Modal: Edit Project Settings -->
-    <div x-show="showEditProject" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
+    <div x-show="showEditProject" @keydown.escape.window="showEditProject = false" @click.self="showEditProject = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
         <div class="bg-dark-900 border border-slate-800 rounded-2xl p-5 sm:p-6 w-full max-w-md space-y-4 shadow-2xl my-auto">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
                 <h3 class="font-bold text-base sm:text-lg text-white">Настройки проекта</h3>
