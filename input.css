@@ -1,3 +1,113 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Smooth theme transition */
+html, body {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+/* Light Theme Overrides (when html does not have .dark) */
+html:not(.dark) body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html:not(.dark) .bg-dark-950 {
+  background-color: #f8fafc !important;
+}
+
+html:not(.dark) .bg-dark-900 {
+  background-color: #ffffff !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+}
+
+html:not(.dark) .bg-dark-900\/90 {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+}
+
+html:not(.dark) .bg-dark-900\/95 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+html:not(.dark) .bg-dark-850 {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) .bg-dark-800 {
+  background-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .hover\:bg-dark-800:hover {
+  background-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .hover\:bg-dark-850:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) .border-slate-800,
+html:not(.dark) .border-slate-800\/80,
+html:not(.dark) .border-slate-800\/60,
+html:not(.dark) .border-slate-700,
+html:not(.dark) .border-slate-700\/80,
+html:not(.dark) .border-slate-700\/60,
+html:not(.dark) .border-dark-750,
+html:not(.dark) .border-dark-700 {
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) .text-slate-100,
+html:not(.dark) .text-slate-200 {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-slate-300,
+html:not(.dark) .text-slate-400 {
+  color: #475569 !important;
+}
+
+html:not(.dark) .text-slate-500 {
+  color: #64748b !important;
+}
+
+html:not(.dark) select,
+html:not(.dark) input[type="text"],
+html:not(.dark) input[type="number"],
+html:not(.dark) input[type="password"],
+html:not(.dark) textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) select:focus,
+html:not(.dark) input:focus,
+html:not(.dark) textarea:focus {
+  border-color: #3b82f6 !important;
+}
+
+html:not(.dark) select option,
+html:not(.dark) select optgroup {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Light theme terminal */
+html:not(.dark) #liveLogTerminal {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+html:not(.dark) #liveLogTerminal::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+html:not(.dark) #liveLogTerminal::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+/* Light theme modals backdrop */
+html:not(.dark) .fixed.bg-black\/70,
+html:not(.dark) .fixed.bg-black\/80 {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(4px);
+}

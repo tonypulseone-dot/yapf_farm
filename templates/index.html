@@ -10,9 +10,22 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/static/favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
     <link rel="shortcut icon" href="/favicon.ico">
-    <meta name="theme-color" content="#090d16">
+    <meta name="theme-color" content="#0f1012">
+    <!-- Theme Flash Preventer -->
+    <script>
+        (function() {
+            const saved = localStorage.getItem('yapf_theme') || 'dark';
+            if (saved === 'light') {
+                document.documentElement.classList.remove('dark');
+                document.documentElement.classList.add('light');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.documentElement.classList.remove('light');
+            }
+        })();
+    </script>
     <!-- Local Precompiled Tailwind CSS (Zero external latency, no JIT lag) -->
-    <link rel="stylesheet" href="/static/tailwind.min.css?v=2">
+    <link rel="stylesheet" href="/static/tailwind.min.css?v=3">
     <!-- Local Font Awesome -->
     <link rel="stylesheet" href="/static/fontawesome.min.css?v=3">
     <!-- Local Alpine.js -->
@@ -29,135 +42,272 @@
     </style>
     <style>
         #liveLogTerminal::-webkit-scrollbar { width: 8px; }
-        #liveLogTerminal::-webkit-scrollbar-track { background: #090d16; border-radius: 4px; }
-        #liveLogTerminal::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-        #liveLogTerminal::-webkit-scrollbar-thumb:hover { background: #475569; }
+        #liveLogTerminal::-webkit-scrollbar-track { background: #0f1012; border-radius: 4px; }
+        #liveLogTerminal::-webkit-scrollbar-thumb { background: #272930; border-radius: 4px; }
+        #liveLogTerminal::-webkit-scrollbar-thumb:hover { background: #3e414d; }
     </style>
 </head>
 <body class="bg-dark-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white" x-data="farmApp()" x-init="init()">
 
-    <!-- Top Navigation Bar -->
-    <header class="border-b border-slate-800/80 bg-dark-900/90 backdrop-blur sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2">
-            <!-- Brand -->
-            <div class="flex items-center space-x-2.5 sm:space-x-3 min-w-0">
-                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center font-bold text-white shadow-lg shadow-blue-500/20 shrink-0">
-                    <i class="fa-solid fa-robot text-base sm:text-lg"></i>
-                </div>
-                <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                        <span class="font-extrabold text-base sm:text-lg tracking-tight text-white truncate">YAPF_Farm</span>
-                        <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full font-mono font-medium shrink-0" 
-                              :class="status.is_running ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'"
-                              x-text="status.is_running ? 'В РАБОТЕ' : 'ОСТАНОВЛЕН'"></span>
+        <div class="min-h-screen flex flex-col lg:flex-row bg-dark-950 text-slate-100">
+
+        <!-- DESKTOP LEFT VERTICAL SIDEBAR -->
+        <aside class="hidden lg:flex flex-col w-64 fixed inset-y-0 left-0 bg-dark-900 border-r border-slate-800/80 z-30 select-none">
+            <!-- Sidebar Header: Logo & Branding -->
+            <div class="h-16 px-5 flex items-center justify-between border-b border-slate-800/80">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white shadow-md shadow-blue-500/20 shrink-0">
+                        <i class="fa-solid fa-robot text-base"></i>
                     </div>
-                    <p class="text-[11px] text-slate-400 hidden sm:block truncate">Автономная фабрика ПФ & Нагула Яндекса</p>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <span class="font-bold text-sm tracking-tight text-white">YAPF Farm</span>
+                            <span class="text-[10px] px-1.5 py-0.2 rounded font-mono font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">PRO</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 truncate">Автономный ПФ & Нагул</p>
+                    </div>
                 </div>
             </div>
 
-            <!-- Quick Telemetry & Controls -->
-            <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
-                <!-- Hardware Badges (Desktop) -->
-                <div class="hidden lg:flex items-center space-x-3 text-xs bg-dark-850 px-3 py-1.5 rounded-lg border border-slate-800">
-                    <div class="flex items-center gap-1.5" title="Загрузка процессора сервера">
-                        <i class="fa-solid fa-microchip text-slate-400"></i>
-                        <span>CPU: <b class="font-mono" :class="status.cpu_load > 80 ? 'text-amber-400' : 'text-slate-200'" x-text="status.cpu_load + '%'"></b></span>
+            <!-- Master Service State & Toggle -->
+            <div class="p-3 border-b border-slate-800/60">
+                <div class="bg-dark-850 p-2.5 rounded-xl border border-slate-800/80 flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0"
+                              :class="status.is_running ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'"></span>
+                        <span class="text-xs font-semibold truncate"
+                              :class="status.is_running ? 'text-emerald-400' : 'text-slate-400'"
+                              x-text="status.is_running ? 'Ферма работает' : 'Остановлена'"></span>
                     </div>
-                    <div class="w-px h-3 bg-slate-700"></div>
-                    <div class="flex items-center gap-1.5" title="Оперативная память">
-                        <i class="fa-solid fa-memory text-slate-400"></i>
-                        <span>RAM: <b class="font-mono text-slate-200" x-text="status.ram_load + '%'"></b></span>
+                    <button @click="toggleService()" 
+                            class="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition active:scale-95 shrink-0"
+                            :class="status.is_running ? 'bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30'">
+                        <i :class="status.is_running ? 'fa-solid fa-pause' : 'fa-solid fa-play'"></i>
+                        <span x-text="status.is_running ? 'Стоп' : 'Старт'"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Vertical Navigation Menu -->
+            <div class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+                <button @click="currentTab = 'overview'"
+                        :class="currentTab === 'overview' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
+                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                    <span class="flex items-center gap-3">
+                        <i class="fa-solid fa-gauge-high text-sm w-4 text-center"></i>
+                        <span>Обзор</span>
+                    </span>
+                </button>
+
+                <button @click="currentTab = 'projects'"
+                        :class="currentTab === 'projects' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
+                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                    <span class="flex items-center gap-3">
+                        <i class="fa-solid fa-folder-tree text-sm w-4 text-center"></i>
+                        <span>Проекты & Ключи</span>
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-dark-800 text-slate-300 border border-slate-700/50" x-text="projects.length"></span>
+                </button>
+
+                <button @click="currentTab = 'positions'; onOpenPositionsTab()"
+                        :class="currentTab === 'positions' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
+                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                    <span class="flex items-center gap-3">
+                        <i class="fa-solid fa-crosshairs text-sm w-4 text-center text-rose-400"></i>
+                        <span>Проверка позиций</span>
+                    </span>
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/25">ТОП-100</span>
+                </button>
+
+                <button @click="currentTab = 'logs'"
+                        :class="currentTab === 'logs' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
+                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                    <span class="flex items-center gap-3">
+                        <i class="fa-solid fa-clock-rotate-left text-sm w-4 text-center"></i>
+                        <span>История кликов</span>
+                    </span>
+                </button>
+
+                <button @click="currentTab = 'settings'"
+                        :class="currentTab === 'settings' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
+                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                    <span class="flex items-center gap-3">
+                        <i class="fa-solid fa-sliders text-sm w-4 text-center"></i>
+                        <span>Настройки & TG</span>
+                    </span>
+                </button>
+
+                <button @click="currentTab = 'manual'"
+                        :class="currentTab === 'manual' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
+                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                    <span class="flex items-center gap-3">
+                        <i class="fa-solid fa-book-open text-sm w-4 text-center"></i>
+                        <span>База знаний</span>
+                    </span>
+                </button>
+            </div>
+
+            <!-- Sidebar Footer: Theme Switcher, Telemetry, Logout -->
+            <div class="p-3 border-t border-slate-800/80 space-y-2.5">
+                <!-- Theme Switcher Button -->
+                <button @click="toggleTheme()" 
+                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition bg-dark-850 hover:bg-dark-800 text-slate-300 border border-slate-800">
+                    <span class="flex items-center gap-2">
+                        <template x-if="theme === 'dark'">
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-moon text-blue-400"></i> Тёмная тема</span>
+                        </template>
+                        <template x-if="theme === 'light'">
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-sun text-amber-500"></i> Светлая тема</span>
+                        </template>
+                    </span>
+                    <span class="text-[10px] text-slate-400 font-mono" x-text="theme === 'dark' ? 'Zinc' : 'Light'"></span>
+                </button>
+
+                <!-- Mini Telemetry -->
+                <div class="grid grid-cols-2 gap-1.5 text-[11px] font-mono">
+                    <div class="bg-dark-850 px-2 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-400">CPU</span>
+                        <span class="font-bold" :class="status.cpu_load > 80 ? 'text-amber-400' : 'text-slate-200'" x-text="status.cpu_load + '%'"></span>
                     </div>
-                    <div class="w-px h-3 bg-slate-700"></div>
-                    <div class="flex items-center gap-1.5 text-blue-400" title="Активные браузерные потоки">
-                        <i class="fa-solid fa-layer-group"></i>
-                        <span>Потоки: <b class="font-mono" x-text="status.active_threads + '/' + status.max_threads"></b></span>
-                    </div>
-                    <div class="w-px h-3 bg-slate-700"></div>
-                    <div class="flex items-center gap-1.5 text-slate-400" title="Время последнего опроса данных">
-                        <i class="fa-regular fa-clock text-slate-500"></i>
-                        <span class="font-mono text-slate-300 text-[11px]" x-text="lastUpdate || '...' "></span>
+                    <div class="bg-dark-850 px-2 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-400">RAM</span>
+                        <span class="font-bold text-slate-200" x-text="status.ram_load + '%'"></span>
                     </div>
                 </div>
-
-                <!-- Start/Stop Button -->
-                <button @click="toggleService()" 
-                        class="px-3.5 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-lg transition-all active:scale-95"
-                        :class="status.is_running ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20' : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'">
-                    <i :class="status.is_running ? 'fa-solid fa-pause' : 'fa-solid fa-play'"></i>
-                    <span x-text="status.is_running ? 'Стоп' : 'Запустить'"></span>
-                </button>
+                
+                <div class="bg-dark-850 px-2.5 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between text-xs">
+                    <span class="text-slate-400 text-[11px] flex items-center gap-1.5">
+                        <i class="fa-solid fa-layer-group text-blue-400"></i> Потоки
+                    </span>
+                    <span class="font-mono font-bold text-blue-400" x-text="status.active_threads + '/' + status.max_threads"></span>
+                </div>
 
                 <!-- Logout -->
-                <a href="/logout" title="Выйти из аккаунта" 
-                   class="p-2 text-slate-400 hover:text-rose-400 hover:bg-dark-850 rounded-lg text-sm transition border border-transparent hover:border-slate-800">
-                    <i class="fa-solid fa-right-from-bracket"></i>
+                <a href="/logout" class="flex items-center justify-center gap-2 w-full px-3 py-2 text-xs text-rose-400 hover:text-white hover:bg-rose-500/20 rounded-xl transition border border-rose-500/20">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Выйти из аккаунта</span>
                 </a>
             </div>
+        </aside>
+
+        <!-- MOBILE TOP HEADER (with hamburger) -->
+        <header class="lg:hidden sticky top-0 z-30 bg-dark-900 border-b border-slate-800/80 px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <button @click="mobileNavOpen = true" class="p-2 text-slate-300 hover:text-white hover:bg-dark-850 rounded-lg">
+                    <i class="fa-solid fa-bars text-lg"></i>
+                </button>
+                <div class="flex items-center gap-2">
+                    <span class="font-bold text-sm text-white">YAPF</span>
+                    <span class="text-[11px] px-2 py-0.5 rounded-md font-mono"
+                          :class="status.is_running ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'"
+                          x-text="status.is_running ? 'В РАБОТЕ' : 'СТОП'"></span>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button @click="toggleTheme()" class="p-2 text-slate-300 hover:text-white hover:bg-dark-850 rounded-lg text-xs" title="Переключить тему">
+                    <i :class="theme === 'dark' ? 'fa-solid fa-moon text-blue-400' : 'fa-solid fa-sun text-amber-500'"></i>
+                </button>
+                <button @click="toggleService()" 
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow"
+                        :class="status.is_running ? 'bg-rose-600 text-white' : 'bg-emerald-600 text-white'">
+                    <i :class="status.is_running ? 'fa-solid fa-pause' : 'fa-solid fa-play'"></i>
+                    <span x-text="status.is_running ? 'Стоп' : 'Старт'"></span>
+                </button>
+            </div>
+        </header>
+
+        <!-- MOBILE SLIDE-OVER DRAWER -->
+        <div x-show="mobileNavOpen" class="fixed inset-0 z-50 lg:hidden flex" x-cloak>
+            <div @click="mobileNavOpen = false" class="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"></div>
+            <div class="relative w-72 max-w-[85vw] bg-dark-900 h-full p-4 flex flex-col justify-between shadow-2xl z-10 border-r border-slate-800">
+                <div>
+                    <div class="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white">
+                                <i class="fa-solid fa-robot"></i>
+                            </div>
+                            <span class="font-bold text-white">YAPF Farm</span>
+                        </div>
+                        <button @click="mobileNavOpen = false" class="p-1.5 text-slate-400 hover:text-white">
+                            <i class="fa-solid fa-xmark text-lg"></i>
+                        </button>
+                    </div>
+                    <div class="space-y-1">
+                        <button @click="currentTab = 'overview'; mobileNavOpen = false"
+                                :class="currentTab === 'overview' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
+                                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm">
+                            <i class="fa-solid fa-gauge-high w-4"></i> Обзор
+                        </button>
+                        <button @click="currentTab = 'projects'; mobileNavOpen = false"
+                                :class="currentTab === 'projects' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
+                                class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm">
+                            <span class="flex items-center gap-3"><i class="fa-solid fa-folder-tree w-4"></i> Проекты & Ключи</span>
+                            <span class="px-2 py-0.5 rounded-full text-xs bg-dark-800" x-text="projects.length"></span>
+                        </button>
+                        <button @click="currentTab = 'positions'; onOpenPositionsTab(); mobileNavOpen = false"
+                                :class="currentTab === 'positions' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
+                                class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm">
+                            <span class="flex items-center gap-3"><i class="fa-solid fa-crosshairs w-4 text-rose-400"></i> Проверка позиций</span>
+                            <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300">ТОП-100</span>
+                        </button>
+                        <button @click="currentTab = 'logs'; mobileNavOpen = false"
+                                :class="currentTab === 'logs' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
+                                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm">
+                            <i class="fa-solid fa-clock-rotate-left w-4"></i> История кликов
+                        </button>
+                        <button @click="currentTab = 'settings'; mobileNavOpen = false"
+                                :class="currentTab === 'settings' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
+                                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm">
+                            <i class="fa-solid fa-sliders w-4"></i> Настройки & TG
+                        </button>
+                        <button @click="currentTab = 'manual'; mobileNavOpen = false"
+                                :class="currentTab === 'manual' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
+                                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm">
+                            <i class="fa-solid fa-book-open w-4"></i> База знаний
+                        </button>
+                    </div>
+                </div>
+                <div class="pt-4 border-t border-slate-800 space-y-2">
+                    <button @click="toggleTheme()" class="w-full flex items-center justify-between px-3 py-2 bg-dark-850 rounded-lg text-xs text-slate-300">
+                        <span class="flex items-center gap-2">
+                            <i :class="theme === 'dark' ? 'fa-solid fa-moon text-blue-400' : 'fa-solid fa-sun text-amber-500'"></i>
+                            <span x-text="theme === 'dark' ? 'Тёмная тема' : 'Светлая тема'"></span>
+                        </span>
+                        <span class="text-[10px] uppercase font-bold text-slate-400" x-text="theme"></span>
+                    </button>
+                    <a href="/logout" class="flex items-center justify-center gap-2 w-full px-3 py-2 text-xs text-rose-400 bg-rose-500/10 rounded-lg">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i> Выйти
+                    </a>
+                </div>
+            </div>
         </div>
-    </header>
 
-    <!-- Main Container -->
-    <main class="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
-
-        <!-- Mobile Telemetry Bar (iPhone 15 Pro Max / Android) -->
-        <div class="grid grid-cols-3 gap-2 lg:hidden text-center text-xs">
-            <div class="bg-dark-900 border border-slate-800/80 rounded-xl p-2 shadow-sm">
-                <span class="text-slate-400 text-[10px] block uppercase font-medium">CPU Загрузка</span>
-                <span class="font-mono font-bold text-slate-200 text-sm" x-text="status.cpu_load + '%'"></span>
+        <!-- MAIN CONTENT WRAPPER -->
+        <div class="flex-1 lg:pl-64 flex flex-col min-w-0">
+            <!-- Content Top Bar (Desktop) -->
+            <div class="hidden lg:flex items-center justify-between h-16 px-6 sm:px-8 border-b border-slate-800/80 bg-dark-900/60 backdrop-blur sticky top-0 z-20">
+                <div>
+                    <h1 class="text-sm sm:text-base font-bold text-slate-100 flex items-center gap-2">
+                        <template x-if="currentTab === 'overview'"><span>Обзор и показатели фермы</span></template>
+                        <template x-if="currentTab === 'projects'"><span>Управление сайтами и поисковыми запросами</span></template>
+                        <template x-if="currentTab === 'positions'"><span>Мониторинг позиций в органике Яндекса (ТОП-100)</span></template>
+                        <template x-if="currentTab === 'logs'"><span>Журнал поисковых переходов и кликов</span></template>
+                        <template x-if="currentTab === 'settings'"><span>Системные параметры фермы и Telegram-бот</span></template>
+                        <template x-if="currentTab === 'manual'"><span>База знаний и регламенты нагула</span></template>
+                    </h1>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-2 text-xs text-slate-400">
+                        <i class="fa-regular fa-clock"></i>
+                        <span class="font-mono text-slate-300" x-text="lastUpdate || 'Загрузка...'"></span>
+                    </div>
+                </div>
             </div>
-            <div class="bg-dark-900 border border-slate-800/80 rounded-xl p-2 shadow-sm">
-                <span class="text-slate-400 text-[10px] block uppercase font-medium">RAM Память</span>
-                <span class="font-mono font-bold text-slate-200 text-sm" x-text="status.ram_load + '%'"></span>
-            </div>
-            <div class="bg-dark-900 border border-slate-800/80 rounded-xl p-2 shadow-sm">
-                <span class="text-slate-400 text-[10px] block uppercase font-medium">Потоки в работе</span>
-                <span class="font-mono font-bold text-blue-400 text-sm" x-text="status.active_threads + '/' + status.max_threads"></span>
-            </div>
-        </div>
 
+            <!-- Inner Content Area -->
+            <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 min-w-0">
 
-        <!-- Navigation Tabs (Horizontally scrollable on mobile) -->
-        <div class="border-b border-slate-800/80 overflow-x-auto no-scrollbar -mx-3 sm:mx-0 px-3 sm:px-0">
-            <div class="flex space-x-1 sm:space-x-2 min-w-max">
-                <button @click="currentTab = 'overview'" 
-                        :class="currentTab === 'overview' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-900'"
-                        class="py-2.5 px-3.5 sm:px-4 font-medium text-xs sm:text-sm border-b-2 rounded-t-lg flex items-center gap-2 transition">
-                    <i class="fa-solid fa-gauge-high"></i> Обзор
-                </button>
-                <button @click="currentTab = 'projects'" 
-                        :class="currentTab === 'projects' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-900'"
-                        class="py-2.5 px-3.5 sm:px-4 font-medium text-xs sm:text-sm border-b-2 rounded-t-lg flex items-center gap-2 transition">
-                    <i class="fa-solid fa-folder-tree"></i> Проекты & Ключи
-                    <span class="bg-slate-800 text-[11px] px-2 py-0.5 rounded-full font-mono" x-text="projects.length"></span>
-                </button>
-                <button @click="currentTab = 'positions'; onOpenPositionsTab()" 
-                        :class="currentTab === 'positions' ? 'border-rose-500 text-rose-400 bg-rose-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-900'"
-                        class="py-2.5 px-3.5 sm:px-4 font-medium text-xs sm:text-sm border-b-2 rounded-t-lg flex items-center gap-2 transition">
-                    <span class="w-4 h-4 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center">Я</span>
-                    <span>Проверка позиций</span>
-                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">ТОП-100</span>
-                </button>
-                <button @click="currentTab = 'logs'" 
-                        :class="currentTab === 'logs' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-900'"
-                        class="py-2.5 px-3.5 sm:px-4 font-medium text-xs sm:text-sm border-b-2 rounded-t-lg flex items-center gap-2 transition">
-                    <i class="fa-solid fa-list-check"></i> История кликов
-                </button>
-                <button @click="currentTab = 'settings'" 
-                        :class="currentTab === 'settings' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-900'"
-                        class="py-2.5 px-3.5 sm:px-4 font-medium text-xs sm:text-sm border-b-2 rounded-t-lg flex items-center gap-2 transition">
-                    <i class="fa-solid fa-sliders"></i> Настройки & Telegram
-                </button>
-                <button @click="currentTab = 'manual'" 
-                        :class="currentTab === 'manual' ? 'border-blue-500 text-blue-400 bg-blue-500/10' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-dark-900'"
-                        class="py-2.5 px-3.5 sm:px-4 font-medium text-xs sm:text-sm border-b-2 rounded-t-lg flex items-center gap-2 transition">
-                    <i class="fa-solid fa-book-open"></i> База знаний
-                    <span class="bg-blue-600/30 text-blue-400 text-[10px] px-1.5 py-0.2 rounded font-bold uppercase">Pro</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- ========================================== -->
         <!-- TAB 1: OVERVIEW                            -->
         <!-- ========================================== -->
         <div x-show="currentTab === 'overview'" class="space-y-4 sm:space-y-6" x-cloak>
@@ -638,12 +788,86 @@
                             </select>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Регион проверки</label>
-                                <input type="text" x-model="positionCheckRegion" placeholder="Начните вводить город или код (213 - Москва)"
-                                       class="w-full bg-dark-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:border-blue-500 focus:outline-none">
+                        <!-- Multi-region Selector with dropdown & tags -->
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between">
+                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                                    Регионы проверки (выбор и добавление нескольких)
+                                </label>
+                                <span class="text-[11px] text-slate-400">
+                                    Выбрано регионов: <b class="text-blue-400 font-mono" x-text="positionRegions.length"></b>
+                                </span>
                             </div>
+
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                                <select x-model="selectedRegionToAdd" class="flex-1 min-w-0 bg-dark-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-slate-200 focus:border-blue-500 focus:outline-none truncate">
+                                    <optgroup label="Популярные регионы">
+                                        <option value="213">Москва (LR 213)</option>
+                                        <option value="1">Московская область (LR 1)</option>
+                                        <option value="2">Санкт-Петербург (LR 2)</option>
+                                        <option value="10174">Ленинградская область (LR 10174)</option>
+                                        <option value="225">Вся Россия (LR 225)</option>
+                                    </optgroup>
+                                    <optgroup label="Города-миллионники РФ">
+                                        <option value="54">Екатеринбург (LR 54)</option>
+                                        <option value="65">Новосибирск (LR 65)</option>
+                                        <option value="43">Казань (LR 43)</option>
+                                        <option value="47">Нижний Новгород (LR 47)</option>
+                                        <option value="56">Челябинск (LR 56)</option>
+                                        <option value="66">Омск (LR 66)</option>
+                                        <option value="62">Красноярск (LR 62)</option>
+                                        <option value="35">Краснодар (LR 35)</option>
+                                        <option value="39">Ростов-на-Дону (LR 39)</option>
+                                        <option value="172">Уфа (LR 172)</option>
+                                        <option value="38">Волгоград (LR 38)</option>
+                                        <option value="63">Иркутск (LR 63)</option>
+                                        <option value="75">Владивосток (LR 75)</option>
+                                        <option value="77">Хабаровск (LR 77)</option>
+                                        <option value="239">Сочи (LR 239)</option>
+                                        <option value="193">Воронеж (LR 193)</option>
+                                        <option value="50">Пермь (LR 50)</option>
+                                        <option value="51">Самара (LR 51)</option>
+                                        <option value="194">Саратов (LR 194)</option>
+                                        <option value="197">Тюмень (LR 197)</option>
+                                    </optgroup>
+                                    <optgroup label="Страны и города СНГ">
+                                        <option value="157">Беларусь (Минск) (LR 157)</option>
+                                        <option value="162">Казахстан (Алматы) (LR 162)</option>
+                                        <option value="163">Казахстан (Астана) (LR 163)</option>
+                                        <option value="168">Узбекистан (Ташкент) (LR 168)</option>
+                                        <option value="149">Армения (Ереван) (LR 149)</option>
+                                        <option value="167">Азербайджан (Баку) (LR 167)</option>
+                                    </optgroup>
+                                </select>
+                                <div class="flex items-center gap-2">
+                                    <input type="text" x-model="selectedRegionToAdd" placeholder="LR" class="w-16 sm:w-20 bg-dark-950 border border-slate-800 rounded-xl px-2.5 py-2.5 text-xs sm:text-sm text-slate-200 font-mono text-center focus:border-blue-500 focus:outline-none shrink-0" title="Ручной ввод кода LR">
+                                    <button type="button" @click="addPositionRegion()" class="px-3.5 py-2.5 bg-dark-850 hover:bg-dark-800 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition">
+                                        <i class="fa-solid fa-plus text-blue-400"></i> Добавить
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Selected Regions Chips -->
+                            <div class="flex flex-wrap items-center gap-1.5 pt-1 min-h-[30px]">
+                                <template x-for="(rCode, idx) in positionRegions" :key="idx">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-dark-850 text-slate-200 border border-slate-700/80 shadow-sm">
+                                        <i class="fa-solid fa-location-dot text-blue-400 text-[10px]"></i>
+                                        <span x-text="getRegionName(rCode) + ' (LR ' + rCode + ')'"></span>
+                                        <button type="button" @click="removePositionRegion(idx)" class="text-slate-400 hover:text-rose-400 ml-0.5" title="Удалить этот регион">
+                                            <i class="fa-solid fa-xmark text-[11px]"></i>
+                                        </button>
+                                    </span>
+                                </template>
+                                <template x-if="positionRegions.length > 1">
+                                    <button type="button" @click="positionRegions = []" class="text-[11px] text-slate-400 hover:text-rose-400 ml-1 underline">
+                                        Очистить все
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Device Selection & Fresh SERP -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                             <div>
                                 <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Устройство выдачи</label>
                                 <select x-model="positionCheckDevice"
@@ -652,13 +876,12 @@
                                     <option value="android">Мобильные (Android)</option>
                                 </select>
                             </div>
-                        </div>
-
-                        <div class="pt-0.5">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" x-model="positionCheckFresh" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
-                                <span class="text-xs font-medium text-slate-300">Свежая выдача (парсинг органики ya.ru в реальном времени)</span>
-                            </label>
+                            <div class="flex items-center pt-5">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" x-model="positionCheckFresh" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
+                                    <span class="text-xs font-medium text-slate-300">Свежая выдача (без кэша)</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
@@ -667,7 +890,7 @@
                         <div class="space-y-1.5 text-xs text-slate-300">
                             <div class="flex items-center justify-between text-slate-400 text-xs">
                                 <span>Запросов к замеру:</span>
-                                <span class="font-mono font-bold text-blue-400" x-text="positionsList.length + ' шт.'"></span>
+                                <span class="font-mono font-bold text-blue-400" x-text="(positionsList.length * Math.max(1, positionRegions.length)) + ' шт.'"></span>
                             </div>
                             <div class="flex items-center justify-between text-slate-400 text-xs">
                                 <span>Глубина парсинга:</span>
@@ -764,7 +987,7 @@
 
                     <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center text-sm shrink-0 font-bold">
-                            🥇
+                            <span class="w-6 h-6 rounded-md bg-amber-500/15 text-amber-400 font-bold text-xs flex items-center justify-center border border-amber-500/25">1</span>
                         </div>
                         <div>
                             <div class="text-[10px] text-slate-400 uppercase font-semibold">В ТОП-3</div>
@@ -774,7 +997,7 @@
 
                     <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center text-sm shrink-0 font-bold">
-                            🥈
+                            <span class="w-6 h-6 rounded-md bg-slate-500/15 text-slate-300 font-bold text-xs flex items-center justify-center border border-slate-500/25">2</span>
                         </div>
                         <div>
                             <div class="text-[10px] text-slate-400 uppercase font-semibold">В ТОП-10</div>
@@ -784,7 +1007,7 @@
 
                     <div class="bg-dark-950 p-3.5 rounded-xl border border-slate-800 flex items-center gap-3">
                         <div class="w-9 h-9 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center text-sm shrink-0 font-bold">
-                            🥉
+                            <span class="w-6 h-6 rounded-md bg-amber-700/15 text-amber-500 font-bold text-xs flex items-center justify-center border border-amber-700/25">3</span>
                         </div>
                         <div>
                             <div class="text-[10px] text-slate-400 uppercase font-semibold">В ТОП-50</div>
@@ -1667,7 +1890,7 @@
                                 <i :class="tgTesting ? 'fa-solid fa-spinner fa-spin text-sky-400' : 'fa-solid fa-paper-plane text-sky-400'"></i>
                                 <span>Проверить отправку в Telegram</span>
                             </button>
-                            <p x-show="tgResult" class="text-xs text-center font-medium" :class="tgResult.includes('✅') ? 'text-emerald-400' : 'text-rose-400'" x-text="tgResult"></p>
+                            <p x-show="tgResult" class="text-xs text-center font-medium" :class="tgResult.includes('успешно') ? 'text-emerald-400' : 'text-rose-400'" x-text="tgResult"></p>
                         </div>
                     </div>
                 </div>
@@ -1761,16 +1984,16 @@
                 <!-- Fast Filter Pills -->
                 <div class="flex flex-wrap gap-1.5 pt-2 border-t border-slate-800/80 text-xs">
                     <button @click="kbSection = 'all'" :class="kbSection === 'all' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">Все разделы</button>
-                    <button @click="kbSection = 'params'" :class="kbSection === 'params' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">⚙️ Справочник всех параметров</button>
-                    <button @click="kbSection = 'architecture'" :class="kbSection === 'architecture' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">🏗 Архитектура системы</button>
-                    <button @click="kbSection = 'start'" :class="kbSection === 'start' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">🚀 Быстрый старт за 5 мин</button>
-                    <button @click="kbSection = 'lifecycle'" :class="kbSection === 'lifecycle' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">🧬 Жизненный цикл профиля</button>
-                    <button @click="kbSection = 'warming'" :class="kbSection === 'warming' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">🔥 Алгоритм нагула (Warming)</button>
-                    <button @click="kbSection = 'promo'" :class="kbSection === 'promo' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">🎯 Алгоритм кликов ПФ</button>
-                    <button @click="kbSection = 'proxy'" :class="kbSection === 'proxy' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">📡 Прокси и ротация IP</button>
-                    <button @click="kbSection = 'hardware'" :class="kbSection === 'hardware' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">⚡ Калькулятор потоков и железа</button>
-                    <button @click="kbSection = 'regions'" :class="kbSection === 'regions' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">📍 Таблица регионов (LR)</button>
-                    <button @click="kbSection = 'troubleshooting'" :class="kbSection === 'troubleshooting' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium">🛡 Антикапча и регламент безопасности</button>
+                    <button @click="kbSection = 'params'" :class="kbSection === 'params' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-sliders"></i> Справочник всех параметров</button>
+                    <button @click="kbSection = 'architecture'" :class="kbSection === 'architecture' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-network-wired"></i> Архитектура системы</button>
+                    <button @click="kbSection = 'start'" :class="kbSection === 'start' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-play"></i> Быстрый старт за 5 мин</button>
+                    <button @click="kbSection = 'lifecycle'" :class="kbSection === 'lifecycle' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-arrows-spin"></i> Жизненный цикл профиля</button>
+                    <button @click="kbSection = 'warming'" :class="kbSection === 'warming' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-temperature-arrow-up"></i> Алгоритм нагула (Warming)</button>
+                    <button @click="kbSection = 'promo'" :class="kbSection === 'promo' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-bullseye"></i> Алгоритм кликов ПФ</button>
+                    <button @click="kbSection = 'proxy'" :class="kbSection === 'proxy' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-tower-broadcast"></i> Прокси и ротация IP</button>
+                    <button @click="kbSection = 'hardware'" :class="kbSection === 'hardware' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-server"></i> Калькулятор потоков и железа</button>
+                    <button @click="kbSection = 'regions'" :class="kbSection === 'regions' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-location-dot"></i> Таблица регионов (LR)</button>
+                    <button @click="kbSection = 'troubleshooting'" :class="kbSection === 'troubleshooting' ? 'bg-blue-600 text-white' : 'bg-dark-850 text-slate-400 hover:text-slate-200'" class="px-3 py-1 rounded-lg transition font-medium"><i class="fa-solid fa-shield-halved"></i> Антикапча и регламент безопасности</button>
                 </div>
 
                 <!-- Search Match Info -->
@@ -2234,7 +2457,9 @@
 
         </div>
 
-    </main>
+            </main>
+        </div>
+    </div>
 
     <!-- Modal: Add Project -->
     <div x-show="showAddProject" class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto" x-cloak>
@@ -2275,7 +2500,7 @@
                 </div>
                 <div class="flex items-center gap-2 min-w-0">
                     <select x-model="newProject.default_region" class="flex-1 min-w-0 bg-dark-900 border border-slate-700 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer truncate">
-                        <optgroup label="⭐ Популярные регионы">
+                        <optgroup label="Популярные регионы">
                             <option value="213">Москва (LR 213)</option>
                             <option value="1">Московская область (LR 1)</option>
                             <option value="2">Санкт-Петербург (LR 2)</option>
@@ -2300,7 +2525,7 @@
                             <option value="239">Сочи (LR 239)</option>
                             <option value="973">Сургут (LR 973)</option>
                         </optgroup>
-                        <optgroup label="📍 Все города и регионы РФ (по алфавиту)">
+                        <optgroup label="Все города и регионы РФ (по алфавиту)">
                             <option value="11316">Абакан (LR 11316)</option>
                             <option value="1107">Анапа (LR 1107)</option>
                             <option value="20">Архангельск (LR 20)</option>
@@ -2453,7 +2678,7 @@
                             <option value="11469">Ялта (LR 11469)</option>
                             <option value="16">Ярославль (LR 16)</option>
                         </optgroup>
-                        <optgroup label="🌍 Страны и города СНГ">
+                        <optgroup label="Страны и города СНГ">
                             <option value="149">Беларусь (вся страна) (LR 149)</option>
                             <option value="157">Минск (LR 157)</option>
                             <option value="159">Казахстан (вся страна) (LR 159)</option>
@@ -2483,7 +2708,7 @@
                 </div>
                 <input type="text" x-model="newProject.brand_tail" placeholder="Например: Фабрика Окон или remont-okon.ru" class="w-full bg-dark-900 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-purple-500">
                 <p class="text-[11px] text-slate-400 leading-normal">
-                    💡 Если запрос находится глубже 5-й страницы выдачи, бот повторит поиск с брендовым хвостом: <span class="text-purple-300 font-mono">«{запрос} {хвост}»</span>, найдет сайт в ТОПе и выполнит переход, прокачивая ПФ для роста чистого ключа.
+                    <i class="fa-regular fa-lightbulb text-amber-400"></i> Если запрос находится глубже 5-й страницы выдачи, бот повторит поиск с брендовым хвостом: <span class="text-purple-300 font-mono">«{запрос} {хвост}»</span>, найдет сайт в ТОПе и выполнит переход, прокачивая ПФ для роста чистого ключа.
                 </p>
             </div>
 
@@ -2531,7 +2756,7 @@
                     </div>
                     <div class="flex items-center gap-1.5">
                         <select x-model="newKeyword.geo_region" class="flex-1 bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer">
-                        <optgroup label="⭐ Популярные регионы">
+                        <optgroup label="Популярные регионы">
                             <option value="213">Москва (LR 213)</option>
                             <option value="1">Московская область (LR 1)</option>
                             <option value="2">Санкт-Петербург (LR 2)</option>
@@ -2556,7 +2781,7 @@
                             <option value="239">Сочи (LR 239)</option>
                             <option value="973">Сургут (LR 973)</option>
                         </optgroup>
-                        <optgroup label="📍 Все города и регионы РФ (по алфавиту)">
+                        <optgroup label="Все города и регионы РФ (по алфавиту)">
                             <option value="11316">Абакан (LR 11316)</option>
                             <option value="1107">Анапа (LR 1107)</option>
                             <option value="20">Архангельск (LR 20)</option>
@@ -2709,7 +2934,7 @@
                             <option value="11469">Ялта (LR 11469)</option>
                             <option value="16">Ярославль (LR 16)</option>
                         </optgroup>
-                        <optgroup label="🌍 Страны и города СНГ">
+                        <optgroup label="Страны и города СНГ">
                             <option value="149">Беларусь (вся страна) (LR 149)</option>
                             <option value="157">Минск (LR 157)</option>
                             <option value="159">Казахстан (вся страна) (LR 159)</option>
@@ -2776,7 +3001,7 @@
                 </div>
                 <div class="flex items-center gap-2 min-w-0">
                     <select x-model="editProjectData.default_region" class="flex-1 min-w-0 bg-dark-900 border border-slate-700 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer truncate">
-                        <optgroup label="⭐ Популярные регионы">
+                        <optgroup label="Популярные регионы">
                             <option value="213">Москва (LR 213)</option>
                             <option value="1">Московская область (LR 1)</option>
                             <option value="2">Санкт-Петербург (LR 2)</option>
@@ -2801,7 +3026,7 @@
                             <option value="239">Сочи (LR 239)</option>
                             <option value="973">Сургут (LR 973)</option>
                         </optgroup>
-                        <optgroup label="📍 Все города и регионы РФ (по алфавиту)">
+                        <optgroup label="Все города и регионы РФ (по алфавиту)">
                             <option value="11316">Абакан (LR 11316)</option>
                             <option value="1107">Анапа (LR 1107)</option>
                             <option value="20">Архангельск (LR 20)</option>
@@ -2954,7 +3179,7 @@
                             <option value="11469">Ялта (LR 11469)</option>
                             <option value="16">Ярославль (LR 16)</option>
                         </optgroup>
-                        <optgroup label="🌍 Страны и города СНГ">
+                        <optgroup label="Страны и города СНГ">
                             <option value="149">Беларусь (вся страна) (LR 149)</option>
                             <option value="157">Минск (LR 157)</option>
                             <option value="159">Казахстан (вся страна) (LR 159)</option>
@@ -2999,6 +3224,8 @@
         function farmApp() {
             return {
                 currentTab: 'overview',
+                mobileNavOpen: false,
+                theme: localStorage.getItem('yapf_theme') || 'dark',
                 liveLogs: [],
                 lastLogId: 0,
                 liveLogFilter: 'ALL',
@@ -3071,7 +3298,9 @@
 
                 // Positions (ТОП-100 Яндекс) state
                 selectedPositionProjectId: '',
-                positionCheckRegion: '',
+                positionRegions: ['213'],
+                selectedRegionToAdd: '213',
+                positionCheckRegion: '213',
                 positionCheckDevice: 'desktop',
                 positionCheckFresh: true,
                 positionDays: '7',
@@ -3631,13 +3860,13 @@
                         const res = await fetch('/api/telegram/test', { method: 'POST' });
                         const data = await res.json();
                         if (data.status === 'success') {
-                            this.tgResult = '✅ Тестовое сообщение успешно отправлено!';
+                            this.tgResult = 'Тестовое сообщение успешно отправлено!';
                         } else {
-                            this.tgResult = '❌ ' + (data.message || data.error || 'Ошибка отправки');
+                            this.tgResult = 'Ошибка: ' + (data.message || data.error || 'Ошибка отправки');
                         }
                         await this.checkTgStatus();
                     } catch(e) {
-                        this.tgResult = '❌ Ошибка сети: ' + e.message;
+                        this.tgResult = 'Ошибка сети: ' + e.message;
                     } finally {
                         this.tgTesting = false;
                     }
@@ -3646,10 +3875,36 @@
                 // ==========================================
                 // POSITIONS (ТОП-100 ЯНДЕКС) METHODS
                 // ==========================================
+                toggleTheme() {
+                    this.theme = this.theme === 'dark' ? 'light' : 'dark';
+                    localStorage.setItem('yapf_theme', this.theme);
+                    if (this.theme === 'dark') {
+                        document.documentElement.classList.add('dark');
+                        document.documentElement.classList.remove('light');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        document.documentElement.classList.add('light');
+                    }
+                },
+
+                addPositionRegion() {
+                    const reg = String(this.selectedRegionToAdd || '').trim();
+                    if (reg && !this.positionRegions.includes(reg)) {
+                        this.positionRegions.push(reg);
+                    }
+                },
+
+                removePositionRegion(idx) {
+                    this.positionRegions.splice(idx, 1);
+                },
+
                 async onOpenPositionsTab() {
                     if (!this.selectedPositionProjectId && this.projects.length > 0) {
                         this.selectedPositionProjectId = this.projects[0].id;
-                        this.positionCheckRegion = this.projects[0].default_region || '213';
+                        const defReg = this.projects[0].default_region || '213';
+                        this.positionRegions = [defReg];
+                        this.selectedRegionToAdd = defReg;
+                        this.positionCheckRegion = defReg;
                     }
                     await this.loadPositionsData();
                     await this.checkPositionsProgress();
@@ -3659,6 +3914,8 @@
                     if (this.selectedPositionProjectId) {
                         const p = this.projects.find(x => String(x.id) === String(this.selectedPositionProjectId));
                         if (p && p.default_region) {
+                            this.positionRegions = [p.default_region];
+                            this.selectedRegionToAdd = p.default_region;
                             this.positionCheckRegion = p.default_region;
                         }
                     }
@@ -3686,12 +3943,14 @@
                 async runPositionsCheck() {
                     if (!this.selectedPositionProjectId) return;
                     try {
+                        const regionsToSend = this.positionRegions.length > 0 ? this.positionRegions : [this.selectedRegionToAdd || '213'];
                         const res = await fetch('/api/positions/check', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 project_id: parseInt(this.selectedPositionProjectId),
-                                region: this.positionCheckRegion || '213',
+                                regions: regionsToSend,
+                                region: regionsToSend[0],
                                 device_type: this.positionCheckDevice || 'desktop',
                                 fresh: !!this.positionCheckFresh
                             })

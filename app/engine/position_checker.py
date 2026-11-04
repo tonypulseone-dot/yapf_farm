@@ -165,9 +165,9 @@ class PositionCheckerManager:
                 "device_type": device_type
             }
 
-    async def check_project_positions(self, project_id: int, region: str = None, device_type: str = "desktop", fresh: bool = True):
+    async def check_project_positions(self, project_id: int, region: str = None, regions: list = None, device_type: str = "desktop", fresh: bool = True):
         """
-        Runs check across all keywords in a project in the background.
+        Runs check across all keywords in a project in the background for one or multiple regions.
         """
         async with self._lock:
             if self.is_checking:
@@ -189,6 +189,17 @@ class PositionCheckerManager:
             if not keywords:
                 return {"status": "error", "message": "В проекте нет активных ключевых запросов"}
 
+            # Build list of target regions
+            target_regions = []
+            if regions and isinstance(regions, list):
+                target_regions = [str(r).strip() for r in regions if str(r).strip()]
+            elif region:
+                target_regions = [r.strip() for r in str(region).split(",") if r.strip()]
+            
+            if not target_regions:
+                target_regions = [proj_dict.get("default_region") or "213"]
+
+            total_checks = len(keywords) * len(target_regions)
             self.is_checking = True
             self.current_project_id = project_id
             self.progress = {
@@ -196,33 +207,37 @@ class PositionCheckerManager:
                 "project_id": project_id,
                 "project_name": proj_dict["name"],
                 "current": 0,
-                "total": len(keywords),
-                "last_log": f"Старт съема позиций для проекта «{proj_dict['name']}»...",
+                "total": total_checks,
+                "last_log": f"Старт съема позиций для проекта «{proj_dict['name']}» ({len(keywords)} ключей x {len(target_regions)} рег.)...",
                 "percent": 0
             }
 
-        live_logger.add("INFO", "checker", f"Запущен съем позиций для проекта «{proj_dict['name']}» ({len(keywords)} ключей, Топ-100)")
+        regions_str = ", ".join(target_regions)
+        live_logger.add("INFO", "checker", f"Запущен съем позиций для проекта «{proj_dict['name']}» ({len(keywords)} ключей, регионы: [{regions_str}], Топ-100)")
 
         try:
-            for idx, kw in enumerate(keywords, 1):
-                self.progress["current"] = idx
-                self.progress["percent"] = round((idx / len(keywords)) * 100, 1)
-                self.progress["last_log"] = f"Проверка [{idx}/{len(keywords)}]: «{kw['keyword']}»"
-                
-                try:
-                    res = await self.check_single_keyword(
-                        keyword_row=kw,
-                        project_row=proj_dict,
-                        region=region,
-                        device_type=device_type
-                    )
-                    pos_label = f"#{res['position']}" if res["position"] > 0 else ">100"
-                    live_logger.add("SUCCESS", "checker", f"Позиция определена: «{kw['keyword']}» -> {pos_label}")
-                except Exception as e:
-                    logger.error(f"Error checking position for '{kw['keyword']}': {e}")
-                    live_logger.add("ERROR", "checker", f"Ошибка проверки «{kw['keyword']}»: {e}")
+            step_count = 0
+            for reg in target_regions:
+                for kw in keywords:
+                    step_count += 1
+                    self.progress["current"] = step_count
+                    self.progress["percent"] = round((step_count / total_checks) * 100, 1)
+                    self.progress["last_log"] = f"Проверка [{step_count}/{total_checks}] (LR {reg}): «{kw['keyword']}»"
+                    
+                    try:
+                        res = await self.check_single_keyword(
+                            keyword_row=kw,
+                            project_row=proj_dict,
+                            region=reg,
+                            device_type=device_type
+                        )
+                        pos_label = f"#{res['position']}" if res["position"] > 0 else ">100"
+                        live_logger.add("SUCCESS", "checker", f"Позиция определена (LR {reg}): «{kw['keyword']}» -> {pos_label}")
+                    except Exception as e:
+                        logger.error(f"Error checking position for '{kw['keyword']}' (LR {reg}): {e}")
+                        live_logger.add("ERROR", "checker", f"Ошибка проверки «{kw['keyword']}» (LR {reg}): {e}")
 
-                await asyncio.sleep(random.uniform(2.0, 4.0))
+                    await asyncio.sleep(random.uniform(2.0, 4.0))
 
             live_logger.add("SUCCESS", "checker", f"Съем позиций для проекта «{proj_dict['name']}» полностью завершен!")
             self.progress["last_log"] = "Проверка завершена успешно!"

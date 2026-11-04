@@ -507,6 +507,7 @@ async def get_positions_progress_api():
 async def run_positions_check_api(data: dict):
     from app.engine.position_checker import position_checker
     project_id = int(data.get("project_id", 0))
+    regions = data.get("regions", [])
     region = data.get("region", "").strip() or None
     device_type = data.get("device_type", "desktop")
     fresh = bool(data.get("fresh", True))
@@ -520,6 +521,7 @@ async def run_positions_check_api(data: dict):
     asyncio.create_task(position_checker.check_project_positions(
         project_id=project_id,
         region=region,
+        regions=regions,
         device_type=device_type,
         fresh=fresh
     ))

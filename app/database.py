@@ -373,7 +373,7 @@ def get_project_positions(project_id=None, days=7, search="", sort_by="best"):
             
         # Get last N days of position history for this keyword
         c.execute("""
-            SELECT position, target_url, checked_at, device_type
+            SELECT position, target_url, checked_at, device_type, region
             FROM positions_history
             WHERE keyword_id = ?
             ORDER BY id DESC
@@ -385,6 +385,7 @@ def get_project_positions(project_id=None, days=7, search="", sort_by="best"):
         current_url = history_rows[0]["target_url"] if history_rows and history_rows[0]["target_url"] else (kw["target_url"] or "")
         last_checked = history_rows[0]["checked_at"][:16].replace("-", ".") if history_rows else "Не проверялся"
         device_type = history_rows[0]["device_type"] if history_rows else "desktop"
+        latest_region = history_rows[0]["region"] if history_rows and history_rows[0]["region"] else (kw["geo_region"] or "213")
         
         # Calculate diff with previous check
         diff = 0
@@ -404,7 +405,7 @@ def get_project_positions(project_id=None, days=7, search="", sort_by="best"):
             "keyword_id": kw_id,
             "keyword": keyword_text,
             "domain": kw["domain"],
-            "region": kw["geo_region"] or "213",
+            "region": latest_region,
             "device_type": device_type,
             "target_url": current_url,
             "current_position": current_pos,
