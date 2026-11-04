@@ -2481,23 +2481,56 @@
                 </div>
             </div>
 
-            <!-- CHAPTER: REGIONS TABLE (LR CODES) -->
-            <div x-show="matchesSearch(['регионы', 'lr', 'код региона', 'москва', 'санкт-петербург', 'казань', 'города'], 'regions')" class="bg-dark-900 border border-slate-800/80 rounded-2xl p-5 sm:p-6 space-y-4">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                    <div class="flex items-center gap-2.5 text-blue-400 font-bold text-base">
-                        <i class="fa-solid fa-map-location-dot text-lg"></i>
-                        <span>Справочник LR-кодов регионов Яндекса</span>
+            <!-- CHAPTER: REGIONS TABLE (LR CODES) - COLLAPSIBLE & SCROLLABLE ACCORDION -->
+            <div x-show="matchesSearch(['регионы', 'lr', 'код региона', 'москва', 'санкт-петербург', 'казань', 'города'], 'regions')" class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-sm transition">
+                <!-- Accordion Header (Click to toggle) -->
+                <div @click="lrExpanded = !lrExpanded" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer select-none group">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 group-hover:bg-blue-500/20 transition">
+                            <i class="fa-solid fa-map-location-dot text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-sm sm:text-base text-slate-100 group-hover:text-blue-400 transition">Справочник LR-кодов регионов Яндекса</h3>
+                                <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400" x-text="regions.length + ' регионов'"></span>
+                            </div>
+                            <p class="text-xs text-slate-400 mt-0.5">Коды регионов поиска Яндекса для точной геопривязки проектов и проверки позиций</p>
+                        </div>
                     </div>
-                    <input type="text" x-model="citySearch" placeholder="Поиск города..." class="w-full sm:w-48 bg-dark-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+                    <div class="flex items-center gap-2 self-start sm:self-auto shrink-0">
+                        <button type="button" class="px-3 py-1.5 bg-dark-950 hover:bg-dark-850 text-slate-300 rounded-lg text-xs font-semibold border border-slate-800 flex items-center gap-2 transition">
+                            <span x-text="lrExpanded ? 'Свернуть список' : 'Развернуть список'"></span>
+                            <i class="fa-solid fa-chevron-down text-[11px] text-slate-400 transition-transform duration-200" :class="lrExpanded ? 'rotate-180' : ''"></i>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 text-xs font-mono">
-                    <template x-for="r in filteredRegions()" :key="r.code">
-                        <div class="p-2.5 bg-dark-950 rounded-lg border border-slate-800/80 text-center hover:border-blue-500/50 transition">
-                            <span class="text-blue-400 font-bold block text-sm" x-text="r.code"></span>
-                            <span class="text-slate-400 font-sans text-[11px] truncate block" x-text="r.city"></span>
+                <!-- Collapsible & Scrollable Content -->
+                <div x-show="lrExpanded" x-cloak class="pt-4 mt-3 border-t border-slate-800 space-y-3">
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                        <div class="relative flex-1 max-w-sm">
+                            <i class="fa-solid fa-magnifying-glass text-slate-500 text-xs absolute left-3 top-1/2 -translate-y-1/2"></i>
+                            <input type="text" x-model="citySearch" placeholder="Поиск города или LR-кода (например: Москва или 213)..." 
+                                   @click.stop
+                                   class="w-full bg-dark-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
                         </div>
-                    </template>
+                        <span class="text-[11px] text-slate-400 font-mono" x-text="'Найдено: ' + filteredRegions().length"></span>
+                    </div>
+
+                    <!-- Scrollable Compact List -->
+                    <div class="max-h-72 sm:max-h-80 overflow-y-auto no-scrollbar pr-1 bg-dark-950 rounded-xl border border-slate-800/80 p-2">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 text-xs font-mono">
+                            <template x-for="r in filteredRegions()" :key="r.code">
+                                <div class="px-2.5 py-2 bg-dark-900 rounded-lg border border-slate-800 flex items-center justify-between gap-2 hover:border-blue-500/50 hover:bg-dark-850 transition cursor-default">
+                                    <span class="text-slate-300 font-sans text-xs truncate" x-text="r.city"></span>
+                                    <span class="text-blue-400 font-bold font-mono text-xs shrink-0" x-text="r.code"></span>
+                                </div>
+                            </template>
+                            <div x-show="filteredRegions().length === 0" class="col-span-full py-6 text-center text-slate-500 text-xs font-sans">
+                                Город или регион не найден
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -3326,6 +3359,7 @@
                 kbSection: 'all',
                 kbSearch: '',
                 citySearch: '',
+                lrExpanded: false,
                 lastUpdate: '',
                 tgTesting: false,
                 tgResult: '',
