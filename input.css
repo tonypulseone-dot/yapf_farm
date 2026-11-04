@@ -93,6 +93,7 @@ html:not(.dark) h6 {
 }
 
 html:not(.dark) aside .font-bold,
+html:not(.dark) aside .font-extrabold,
 html:not(.dark) header .font-bold {
   color: #0f172a !important;
 }
