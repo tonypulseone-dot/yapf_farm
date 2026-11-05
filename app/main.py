@@ -18,6 +18,8 @@ from app.database import (
 )
 from app.engine.orchestrator import orchestrator
 from app.engine.logger import live_logger
+from app.reporting import daily_log_metrics, day_bounds
+from app.dispatch import has_pending_keyword
 from app.engine.telegram import (
     send_telegram_alert, send_daily_summary, telegram_bot_polling_loop, resolve_target_chat_id
 )
@@ -122,12 +124,21 @@ async def get_status():
     prof_stats = {r["status"]: r["cnt"] for r in prof_rows}
     
     # Clicks today
-    c.execute("SELECT COUNT(*) as cnt FROM click_logs WHERE DATE(timestamp) = DATE('now') AND status = 'success'")
-    clicks_today = c.fetchone()["cnt"]
+    daily_metrics = daily_log_metrics(conn)
     
     # Total projects
     c.execute("SELECT COUNT(*) as cnt FROM projects WHERE is_active = 1")
     projects_cnt = c.fetchone()["cnt"]
+    active_keys = c.execute('SELECT COUNT(*) FROM keywords k JOIN projects p ON p.id=k.project_id '
+                            'WHERE p.is_active=1 AND k.is_active=1 AND k.daily_goal>0').fetchone()[0]
+    if not projects_cnt:
+        promotion_state = 'Все проекты на паузе'
+    elif not active_keys:
+        promotion_state = 'Нет активных ключевых запросов'
+    elif not has_pending_keyword():
+        promotion_state = 'Ожидание паузы, завершения попыток или новой суточной нормы'
+    else:
+        promotion_state = 'Запросы доступны; ожидаем свободный Ready-профиль'
 
     # Ready ETA Calculation
     c.execute("SELECT MIN(created_at) as earliest_warming FROM profiles WHERE status = 'warming'")
@@ -172,7 +183,8 @@ async def get_status():
         "last_log": orchestrator.stats["last_log"],
         "cpu_load": cpu_usage,
         "ram_load": ram_usage,
-        "clicks_today": clicks_today,
+        **daily_metrics,
+        "promotion_state": promotion_state,
         "projects_count": projects_cnt,
         "profiles": {
             "total": sum(prof_stats.values()),
@@ -235,10 +247,24 @@ async def list_projects():
     c = conn.cursor()
     c.execute("SELECT * FROM projects ORDER BY created_at DESC")
     projects = [dict(r) for r in c.fetchall()]
+    start, end = day_bounds()
+    rows = c.execute('''SELECT keyword_id,COUNT(*) AS attempts,
+        SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) AS successes,
+        SUM(CASE WHEN status='not_found' THEN 1 ELSE 0 END) AS missing,
+        SUM(CASE WHEN status IN ('error','captcha') THEN 1 ELSE 0 END) AS errors
+        FROM click_logs WHERE timestamp>=? AND timestamp<? AND keyword_id IS NOT NULL
+        GROUP BY keyword_id''', (start,end)).fetchall()
+    metrics = {r['keyword_id']: dict(r) for r in rows}
     
     for p in projects:
         c.execute("SELECT * FROM keywords WHERE project_id = ? ORDER BY id DESC", (p["id"],))
         p["keywords"] = [dict(k) for k in c.fetchall()]
+        for keyword in p['keywords']:
+            counts = metrics.get(keyword['id'], {})
+            keyword.update(clicks_today=counts.get('successes',0),
+                           attempts_today=counts.get('attempts',0),
+                           not_found_today=counts.get('missing',0),
+                           errors_today=counts.get('errors',0))
     conn.close()
     return projects
 
@@ -442,6 +468,13 @@ async def get_settings_api():
 
 @app.post("/api/settings")
 async def update_settings_api(data: dict):
+    if 'keyword_min_interval_sec' in data:
+        try:
+            gap = int(data['keyword_min_interval_sec'])
+            if not 0 <= gap <= 86400:
+                raise ValueError()
+        except (TypeError, ValueError):
+            return JSONResponse({'status':'error','message':'Пауза запроса должна быть целым числом от 0 до 86400 секунд'}, status_code=422)
     for k, v in data.items():
         if isinstance(v, bool):
             val_str = "1" if v else "0"

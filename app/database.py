@@ -110,6 +110,21 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_pos_kw ON positions_history(keyword_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_pos_time ON positions_history(checked_at)")
 
+    # Additive migration: retain all existing logs and counters.
+    log_columns = {r['name'] for r in c.execute('PRAGMA table_info(click_logs)')}
+    for column, kind in [('keyword_id', 'INTEGER'), ('project_id', 'INTEGER'), ('attempt_id', 'TEXT')]:
+        if column not in log_columns:
+            c.execute(f'ALTER TABLE click_logs ADD COLUMN {column} {kind}')
+    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_click_attempt ON click_logs(attempt_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_click_time ON click_logs(timestamp)')
+    c.execute('''CREATE TABLE IF NOT EXISTS keyword_attempts (
+        id TEXT PRIMARY KEY, keyword_id INTEGER NOT NULL, project_id INTEGER NOT NULL,
+        quota_date TEXT NOT NULL, status TEXT NOT NULL, started_at TEXT NOT NULL,
+        lease_expires_at TEXT NOT NULL, finished_at TEXT
+    )''')
+    c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_keyword_reserved ON keyword_attempts(keyword_id) WHERE status='reserved'")
+    c.execute('CREATE INDEX IF NOT EXISTS idx_keyword_turn ON keyword_attempts(keyword_id,quota_date,started_at)')
+
     # Telegram users registry table (mapping usernames to chat_ids automatically)
     c.execute("""
     CREATE TABLE IF NOT EXISTS telegram_users (
@@ -146,6 +161,7 @@ def init_db():
         "thread_launch_interval_sec": "2.5",
         "thread_max_lifetime_min": "30",
         "thread_auto_restart": "1",
+        "keyword_min_interval_sec": "1200",
         "profile_group": "",
 
         # Warming
@@ -213,6 +229,14 @@ def init_db():
     
     for k, v in defaults.items():
         c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
+
+    # Link old rows only when a domain/query pair identifies exactly one keyword.
+    c.execute('''UPDATE click_logs SET keyword_id=(
+        SELECT MIN(k.id) FROM keywords k JOIN projects p ON p.id=k.project_id
+        WHERE p.domain=click_logs.domain AND k.keyword=click_logs.keyword
+        HAVING COUNT(*)=1) WHERE keyword_id IS NULL''')
+    c.execute('''UPDATE click_logs SET project_id=(SELECT project_id FROM keywords WHERE id=click_logs.keyword_id)
+                 WHERE project_id IS NULL AND keyword_id IS NOT NULL''')
         
     conn.commit()
     conn.close()

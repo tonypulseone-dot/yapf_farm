@@ -18,6 +18,7 @@ from app.engine.warmer import run_warming_cycle
 from app.engine.promo import run_promotion_click
 from app.engine.telegram import notify_click_success, notify_captcha, send_telegram_alert
 from app.engine.logger import live_logger
+from app.dispatch import has_pending_keyword, reserve_keyword, finish_attempt
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("orchestrator")
@@ -188,32 +189,13 @@ class TaskOrchestrator:
         return dict(row) if row else None
 
     def get_pending_keyword(self):
-        """Fetch next keyword that needs clicks today."""
-        conn = get_db()
-        c = conn.cursor()
-        
-        today_str = datetime.now().strftime("%Y-%m-%d")
-        c.execute("""
-            UPDATE keywords 
-            SET clicks_today = 0, last_reset_date = ? 
-            WHERE last_reset_date != ?
-        """, (today_str, today_str))
-        conn.commit()
-        
-        c.execute("""
-            SELECT k.*, p.domain, p.name as project_name,
-                   p.brand_tail as project_brand_tail,
-                   p.use_brand_tail as project_use_brand_tail,
-                   p.default_region as project_default_region
-            FROM keywords k
-            JOIN projects p ON k.project_id = p.id
-            WHERE k.is_active = 1 AND p.is_active = 1 AND k.clicks_today < k.daily_goal
-            ORDER BY k.last_click_at ASC NULLS FIRST
-            LIMIT 1
-        """)
-        row = c.fetchone()
-        conn.close()
-        return dict(row) if row else None
+        """Atomically reserve a shuffled, eligible keyword (not just a preview)."""
+        task = reserve_keyword()
+        if task:
+            live_logger.add('PROMO', 'dispatch',
+                            f"Назначен ключ #{task['id']}: «{task['keyword']}», попытка {task['_attempt_id'][:8]}. "
+                            'Ключ зарезервирован за одним потоком; повтор — после заданной паузы.')
+        return task
 
     async def execute_worker_task(self, stagger_delay: float = 0.0):
         if stagger_delay > 0:
@@ -221,23 +203,25 @@ class TaskOrchestrator:
 
         profile_id = None
         thread_counted = False
+        profile = None
+        keyword_task = None
+        result_recorded = False
+        error_details = 'Worker interrupted before completion'
         try:
             if get_setting("is_running", "0") != "1":
                 return
 
             # 1. Decide task: Promotion or Warming?
-            keyword_task = self.get_pending_keyword()
-            profile = None
             task_type = "warming"
             
-            if keyword_task:
+            if has_pending_keyword():
                 # Try to get a free Ready profile
                 profile = await self.get_or_create_profile(target_status="ready")
                 if profile and profile["status"] == "ready":
+                    keyword_task = self.get_pending_keyword()
+                    if keyword_task is None:
+                        return
                     task_type = "promo"
-                else:
-                    profile = await self.get_or_create_profile(target_status="warming")
-                    task_type = "warming"
             else:
                 profile = await self.get_or_create_profile(target_status="warming")
                 task_type = "warming"
@@ -314,18 +298,8 @@ class TaskOrchestrator:
                         self.stats["last_log"] = f"[{profile['name']}] Клики ПФ: {keyword_task['domain']} -> '{keyword_task['keyword']}'"
                         res = await run_promotion_click(page, keyword_task, profile["name"])
                         
-                        conn = get_db()
-                        c = conn.cursor()
-                        c.execute("""
-                            INSERT INTO click_logs (keyword, target_url, domain, profile_name, device, region, position_found, status, details)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        """, (keyword_task["keyword"], keyword_task["target_url"] or "", keyword_task["domain"],
-                              profile["name"], profile["device_type"], keyword_task.get("geo_region", "213"),
-                              res["position"], res["status"], res["details"]))
-                        
-                        if res["status"] == "success":
-                            c.execute("UPDATE keywords SET clicks_today = clicks_today + 1, last_click_at = CURRENT_TIMESTAMP WHERE id = ?", (keyword_task["id"],))
-                            c.execute("UPDATE profiles SET total_clicks = total_clicks + 1, last_used_at = CURRENT_TIMESTAMP, status = 'warming' WHERE id = ?", (profile["id"],))
+                        result_recorded = finish_attempt(keyword_task, profile, res)
+                        if result_recorded and res["status"] == "success" and res.get('navigation_verified'):
                             asyncio.create_task(notify_click_success(
                                 domain=keyword_task["domain"],
                                 keyword=keyword_task["keyword"],
@@ -333,17 +307,15 @@ class TaskOrchestrator:
                                 profile_name=profile["name"],
                                 device=profile.get("device_type", "desktop")
                             ))
-                        elif res["status"] == "captcha":
+                        elif result_recorded and res["status"] == "captcha":
                             asyncio.create_task(notify_captcha(
                                 keyword=keyword_task["keyword"],
                                 domain=keyword_task["domain"],
                                 solved=False
                             ))
 
-                        conn.commit()
-                        conn.close()
-
-                        if res["status"] in ["success", "not_found"]:
+                        if result_recorded and (res["status"] == "not_found" or
+                                                (res["status"] == "success" and res.get('navigation_verified'))):
                             try:
                                 from app.database import record_position
                                 record_position(
@@ -401,9 +373,16 @@ class TaskOrchestrator:
         except Exception as e:
             logger.error(f"Worker task error: {e}")
             err_str = str(e)[:120]
+            error_details = err_str
             self.stats["last_log"] = f"Ошибка потока: {err_str}"
             live_logger.add("ERROR", profile["name"] if profile else "worker", f"Ошибка потока: {err_str}")
         finally:
+            if keyword_task is not None and not result_recorded:
+                try:
+                    finish_attempt(keyword_task, profile or {},
+                                   {'status': 'error', 'position': 0, 'details': error_details})
+                except Exception as save_error:
+                    logger.error('Unable to finalize keyword reservation: %s', type(save_error).__name__)
             if profile_id is not None:
                 self.busy_profiles.discard(profile_id)
             if thread_counted:
@@ -430,12 +409,11 @@ class TaskOrchestrator:
                 is_run = (get_setting("is_running", "0") == "1")
                 current_max = int(get_setting("max_threads", "10"))
                 self.stats["max_threads"] = current_max
+                self.active_tasks = {t for t in self.active_tasks if not t.done()}
                 
                 if not is_run:
-                    self.stats["active_threads"] = 0
-                    self.stats["warming_active"] = 0
-                    self.stats["promo_active"] = 0
-                    self.busy_profiles.clear()
+                    # Existing workers finish with their locks intact. A pause only
+                    # stops new dispatch; a quick resume must not reopen their profiles.
                     await asyncio.sleep(2)
                     continue
 

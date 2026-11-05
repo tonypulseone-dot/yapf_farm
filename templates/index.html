@@ -47,7 +47,7 @@
         #liveLogTerminal::-webkit-scrollbar-thumb:hover { background: #3e414d; }
     </style>
 </head>
-<body class="bg-dark-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white" x-data="farmApp()" x-init="init()">
+<body class="bg-dark-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white" x-data="farmApp()">
 
         <div class="min-h-screen flex flex-col lg:flex-row bg-dark-950 text-slate-100">
 
@@ -379,9 +379,10 @@
             <!-- KPI Cards Grid -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-5 relative overflow-hidden shadow-sm">
-                    <div class="text-[11px] sm:text-xs text-slate-400 uppercase tracking-wider font-semibold">Кликов сегодня</div>
+                    <div class="text-[11px] sm:text-xs text-slate-400 uppercase tracking-wider font-semibold">Успешных переходов сегодня</div>
                     <div class="text-2xl sm:text-3xl font-extrabold font-mono text-emerald-400 mt-2" x-text="status.clicks_today"></div>
-                    <p class="text-[11px] text-slate-500 mt-1">Визиты в выдаче</p>
+                    <p class="text-[11px] text-slate-500 mt-1">Подтверждён целевой сайт · сутки по МСК</p>
+                    <p class="text-[11px] text-slate-400 mt-1" x-text="'Попыток: ' + (status.attempts_today || 0) + ' · Не найден: ' + (status.not_found_today || 0) + ' · Ошибок: ' + ((status.errors_today || 0) + (status.captcha_today || 0))"></p>
                     <div class="absolute right-3 bottom-3 text-emerald-500/10 text-4xl sm:text-5xl pointer-events-none">
                         <i class="fa-solid fa-chart-line"></i>
                     </div>
@@ -416,6 +417,7 @@
             </div>
 
             <!-- Thread Activity Breakdown -->
+            <p class="text-xs text-slate-400" x-text="status.promotion_state || ''"></p>
             <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-sm">
                 <h3 class="font-bold text-sm sm:text-base mb-4 flex items-center gap-2">
                     <i class="fa-solid fa-microchip text-blue-500"></i> Единый диспетчер потоков (Warming + Promotion в одном процессе)
@@ -781,7 +783,10 @@
                                                 <span x-show="k.brand_tail || p.brand_tail" class="text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded text-[10px]" x-text="k.brand_tail || p.brand_tail"></span>
                                                 <span x-show="!k.brand_tail && !p.brand_tail" class="text-slate-600">—</span>
                                             </td>
-                                            <td class="py-2.5 px-3 font-mono font-bold" :class="k.clicks_today >= k.daily_goal ? 'text-emerald-400' : 'text-slate-300'" x-text="k.clicks_today"></td>
+                                            <td class="py-2.5 px-3 font-mono" :class="k.clicks_today >= k.daily_goal ? 'text-emerald-400' : 'text-slate-300'">
+                                                <span class="font-bold" x-text="k.clicks_today"></span>
+                                                <div class="text-[11px] text-slate-500" x-text="'Попыток: ' + (k.attempts_today || 0) + ' · Не найден: ' + (k.not_found_today || 0) + ' · Ошибок: ' + (k.errors_today || 0)"></div>
+                                            </td>
                                             <td class="py-2.5 px-3 font-mono text-slate-400" x-text="k.daily_goal"></td>
                                             <td class="py-2.5 px-3">
                                                 <div class="w-20 bg-dark-950 rounded-full h-1.5 overflow-hidden">
@@ -1345,7 +1350,7 @@
                                                   'bg-amber-500/20 text-amber-400 border border-amber-500/30': l.status === 'not_found',
                                                   'bg-rose-500/20 text-rose-400 border border-rose-500/30': l.status === 'captcha' || l.status === 'error'
                                               }"
-                                              x-text="l.status === 'success' ? 'Клик выполнен' : (l.status === 'not_found' ? 'Не в топ-5' : l.status)"></span>
+                                              x-text="l.status === 'success' ? 'Переход подтверждён' : (l.status === 'not_found' ? 'Сайт не найден' : l.status)"></span>
                                     </td>
                                 </tr>
                             </template>
@@ -1678,6 +1683,12 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div x-show="settingsSubTab === 'engine' || settingsSubTab === 'promo'" class="bg-dark-900 border border-slate-800/80 rounded-2xl p-5 space-y-3">
+                <label class="block text-xs font-medium text-slate-300">Пауза между началами попыток одного запроса, секунды</label>
+                <input type="number" x-model="settings.keyword_min_interval_sec" min="0" max="86400" step="60" class="w-full bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200">
+                <p class="text-xs text-slate-400">По умолчанию 1200 секунд (20 минут). Запросы выбираются в перемешанном порядке; ошибки тоже учитываются как попытка. Один запрос одновременно выполняет только один поток.</p>
             </div>
 
             <!-- SUB-TAB 4: WARMING -->
@@ -3355,6 +3366,9 @@
                 autoScroll: true,
                 copiedMsg: '',
                 livePollTimer: null,
+                dashboardPollTimer: null,
+                initialized: false,
+                refreshingDashboard: false,
 
                 kbSection: 'all',
                 kbSearch: '',
@@ -3380,6 +3394,11 @@
                     cpu_load: 0,
                     ram_load: 0,
                     clicks_today: 0,
+                    attempts_today: 0,
+                    not_found_today: 0,
+                    errors_today: 0,
+                    captcha_today: 0,
+                    promotion_state: '',
                     profiles: { total: 0, new: 0, warming: 0, ready: 0 },
                     ready_eta: {
                         hours_left: 16.4,
@@ -3717,6 +3736,8 @@
                 },
 
                 async init() {
+                    if (this.initialized) return;
+                    this.initialized = true;
                     this.initLiveLogs();
                     // Parallel fast initial load
                     await Promise.allSettled([
@@ -3729,9 +3750,23 @@
                     ]);
 
                     // Poll status every 3.5s
-                    setInterval(() => {
-                        this.loadStatus();
-                    }, 3500);
+                    this.dashboardPollTimer = setInterval(() => this.refreshDashboard(), 5000);
+                },
+
+                async refreshDashboard() {
+                    if (this.refreshingDashboard) return;
+                    this.refreshingDashboard = true;
+                    try {
+                        await Promise.allSettled([this.loadStatus(), this.loadProjects(), this.loadLogs()]);
+                    } finally {
+                        this.refreshingDashboard = false;
+                    }
+                },
+
+                destroy() {
+                    for (const timer of [this.dashboardPollTimer, this.livePollTimer, this.posProgressTimer]) {
+                        if (timer) clearInterval(timer);
+                    }
                 },
 
                 async loadSystemVersion() {
@@ -3765,6 +3800,7 @@
                 async loadStatus() {
                     try {
                         const res = await fetch('/api/status');
+                        if (!res.ok) return;
                         this.status = await res.json();
                         this.lastUpdate = new Date().toLocaleTimeString();
                     } catch(e) {}
@@ -3782,6 +3818,7 @@
                 async loadProjects() {
                     try {
                         const res = await fetch('/api/projects');
+                        if (!res.ok) return;
                         this.projects = await res.json();
                     } catch(e) {}
                 },
@@ -3918,6 +3955,7 @@
                 async loadLogs() {
                     try {
                         const res = await fetch('/api/logs?limit=40');
+                        if (!res.ok) return;
                         this.logs = await res.json();
                     } catch(e) {}
                 },
@@ -3964,11 +4002,15 @@
 
                 async saveSettings() {
                     try {
-                        await fetch('/api/settings', {
+                        const response = await fetch('/api/settings', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(this.settings)
                         });
+                        if (!response.ok) {
+                            const error = await response.json().catch(() => ({}));
+                            throw new Error(error.message || 'Сервер отклонил настройки');
+                        }
                         this.saveStatusMsg = 'Настройки успешно сохранены!';
                         setTimeout(() => { this.saveStatusMsg = ''; }, 3000);
                         await this.checkTgStatus();

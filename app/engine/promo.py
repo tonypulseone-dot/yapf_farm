@@ -1,11 +1,22 @@
 import asyncio
 import random
 import logging
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit
 from app.engine.human import human_mouse_move, human_scroll, human_type
 from app.engine.logger import live_logger
 
 logger = logging.getLogger("promo")
+
+
+def target_host_matches(url, domain):
+    try:
+        target = urlsplit(domain if '://' in domain else 'https://' + domain).hostname or ''
+        observed = urlsplit(url).hostname or ''
+        target = target.lower().removeprefix('www.').rstrip('.').encode('idna').decode('ascii')
+        observed = observed.lower().removeprefix('www.').rstrip('.').encode('idna').decode('ascii')
+        return bool(target) and observed == target
+    except (ValueError, UnicodeError):
+        return False
 
 async def _search_and_click(page, search_query: str, region: str, domain: str, profile_name: str, max_pages: int = 5, is_tail: bool = False):
     """Executes search and scans SERP for target domain up to max_pages."""
@@ -59,7 +70,9 @@ async def _search_and_click(page, search_query: str, region: str, domain: str, p
             text = await link.inner_text()
             
             # Check if domain matches
-            if domain in href.lower() or domain in text.lower():
+            # A displayed target may use a redirect, but success is only recorded
+            # after a verified navigation to the actual host below.
+            if target_host_matches(href, domain) or target_host_matches('https://' + text.strip().split('/')[0], domain):
                 position_found = (page_num - 1) * 10 + (idx + 1)
                 tail_str = " (по брендовому хвосту)" if is_tail else ""
                 logger.info(f"[{profile_name}] TARGET FOUND! Domain '{domain}' at position #{position_found} (Page {page_num}){tail_str}")
@@ -72,12 +85,28 @@ async def _search_and_click(page, search_query: str, region: str, domain: str, p
                                            box["x"] + box["width"]/2, box["y"] + box["height"]/2)
                 
                 live_logger.add("PROMO", profile_name, f"Клик по целевому сайту {domain} в выдаче")
+                click_completed = False
+                site_page = page
                 try:
                     async with page.expect_popup(timeout=10000) as popup_info:
                         await link.click()
+                        click_completed = True
                     site_page = await popup_info.value
-                except Exception:
-                    site_page = page
+                except Exception as exc:
+                    if not click_completed:
+                        return {'status': 'error', 'position': position_found,
+                                'details': 'Target link click failed: ' + type(exc).__name__}
+                    # No popup is normal for same-tab navigation. Verify its URL.
+                try:
+                    await site_page.wait_for_url(lambda url: target_host_matches(str(url), domain), timeout=15000)
+                    await site_page.wait_for_load_state('domcontentloaded', timeout=15000)
+                except Exception as exc:
+                    return {'status': 'error', 'position': position_found,
+                            'details': 'Target navigation not confirmed: ' + type(exc).__name__}
+                if not target_host_matches(site_page.url, domain):
+                    return {'status': 'error', 'position': position_found,
+                            'details': 'Navigation reached a different hostname'}
+                verified_url = site_page.url
                 
                 # Browse target site 40-90 seconds with internal clicks
                 dwell_time = random.uniform(40.0, 90.0)
@@ -109,6 +138,8 @@ async def _search_and_click(page, search_query: str, region: str, domain: str, p
                 return {
                     "status": "success", 
                     "position": position_found, 
+                    "navigation_verified": True,
+                    "target_url": verified_url,
                     "details": f"Стр. {page_num}, Позиция #{position_found}{tail_str}"
                 }
 

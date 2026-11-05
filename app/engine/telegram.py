@@ -4,6 +4,7 @@ import urllib.parse
 import urllib.request
 import json
 import ssl
+from app.reporting import daily_log_metrics
 from datetime import datetime
 from app.database import (
     get_setting, set_setting, get_db,
@@ -121,8 +122,7 @@ async def send_daily_summary(stats: dict = None, custom_chat_id: str = None):
         c.execute("SELECT status, COUNT(*) as cnt FROM profiles GROUP BY status")
         prof_rows = c.fetchall()
         prof_stats = {r["status"]: r["cnt"] for r in prof_rows}
-        c.execute("SELECT COUNT(*) as cnt FROM click_logs WHERE DATE(timestamp) = DATE('now') AND status = 'success'")
-        clicks_today = c.fetchone()["cnt"]
+        clicks_today = daily_log_metrics(conn)['clicks_today']
         c.execute("SELECT COUNT(*) as cnt FROM projects WHERE is_active = 1")
         proj_cnt = c.fetchone()["cnt"]
         conn.close()
@@ -304,8 +304,7 @@ async def telegram_bot_polling_loop():
                         c = conn.cursor()
                         c.execute("SELECT COUNT(*) as cnt FROM profiles")
                         tot_prof = c.fetchone()["cnt"]
-                        c.execute("SELECT COUNT(*) as cnt FROM click_logs WHERE DATE(timestamp) = DATE('now') AND status = 'success'")
-                        clicks_tod = c.fetchone()["cnt"]
+                        clicks_tod = daily_log_metrics(conn)['clicks_today']
                         conn.close()
 
                         status_msg = (
