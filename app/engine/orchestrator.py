@@ -30,6 +30,8 @@ class TaskOrchestrator:
         self.is_running = False
         self.active_tasks = set()
         self.busy_profiles = set()  # Active profile IDs currently locked by worker threads
+        self._launch_lock = asyncio.Lock()
+        self._next_browser_launch = 0.0
         self.stats = {
             "active_threads": 0,
             "warming_active": 0,
@@ -268,6 +270,15 @@ class TaskOrchestrator:
             live_logger.add("INFO", profile["name"], f"Выделен поток ({task_type.upper()}), прокси: {chosen_proxy_label}")
 
             # 3. Launch isolated browser instance
+            # Serialize launch admission across ALL refill batches. Per-batch
+            # staggering alone lets replacements start together after short jobs.
+            async with self._launch_lock:
+                loop = asyncio.get_running_loop()
+                await asyncio.sleep(max(0.0, self._next_browser_launch - loop.time()))
+                if get_setting("is_running", "0") != "1":
+                    return
+                interval = max(0.0, float(get_setting("thread_launch_interval_sec", "1.5")))
+                self._next_browser_launch = loop.time() + interval
             async with async_playwright() as p:
                 launch_args = [
                     "--disable-blink-features=AutomationControlled",

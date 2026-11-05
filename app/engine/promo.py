@@ -50,8 +50,10 @@ async def _search_and_click(page, search_query: str, region: str, domain: str, p
         live_logger.add("WARN", profile_name, "Обнаружена SmartCaptcha при поиске, попытка авто-клика...")
         from app.engine.captcha import handle_yandex_checkbox_captcha
         if await handle_yandex_checkbox_captcha(page):
-            live_logger.add("SUCCESS", profile_name, "SmartCaptcha пройдена кликом, продолжаем сканирование!")
             await asyncio.sleep(2.5)
+            if "showcaptcha" in page.url or await page.query_selector("form.CheckboxCaptcha, input.CheckboxCaptcha-Button, #smartcaptcha-anchor"):
+                return {"status": "captcha", "position": 0, "details": "Search remains blocked by captcha"}
+            live_logger.add("INFO", profile_name, "Проверка CAPTCHA завершена, проверяем выдачу")
         else:
             live_logger.add("WARN", profile_name, "SmartCaptcha требует ручного решения или ключа сервиса")
             return {"status": "captcha", "position": 0, "details": "Captcha on search"}
@@ -60,6 +62,11 @@ async def _search_and_click(page, search_query: str, region: str, domain: str, p
     for page_num in range(1, max_pages + 1):
         live_logger.add("PROMO", profile_name, f"Сканирование выдачи{label}: страница {page_num}...")
         items = await page.query_selector_all("li.serp-item")
+        if not items:
+            # An empty/challenge/unrecognized document is not evidence that
+            # the target is absent from the requested search results.
+            return {"status": "error", "position": 0,
+                    "details": "Search results unavailable: no recognized result items"}
         
         for idx, item in enumerate(items):
             link = await item.query_selector("a.organic__url, a.Link_theme_normal")
@@ -191,6 +198,9 @@ async def run_promotion_click(page, keyword_item, profile_name):
         res_tail = await _search_and_click(page, search_query=tail_query, region=region, domain=domain, profile_name=profile_name, max_pages=3, is_tail=True)
         if res_tail["status"] == "success":
             res_tail["details"] = f"С брендовым хвостом «{brand_tail}» ({res_tail['details']})"
+            return res_tail
+        elif res_tail["status"] in ("captcha", "error"):
+            # Preserve the actual failure: a blocked page is not a missing site.
             return res_tail
         else:
             live_logger.add("WARN", profile_name, f"Домен «{domain}» не найден даже с брендовым хвостом «{brand_tail}» в ТОП-30")

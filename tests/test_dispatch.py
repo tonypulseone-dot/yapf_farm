@@ -285,3 +285,49 @@ def test_pause_keeps_running_profile_locked():
         try:await task
         except asyncio.CancelledError:pass
     asyncio.run(run())
+
+
+@pytest.mark.parametrize('status', ['captcha', 'error'])
+def test_brand_retry_preserves_failure_status(status):
+    async def run():
+        failure={'status':status,'position':0,'details':'blocked or disconnected'}
+        with patch.object(promo,'_search_and_click',new=AsyncMock(side_effect=[{'status':'not_found'},failure])):
+            result=await promo.run_promotion_click(None,{'keyword':'test','domain':'example.test','brand_tail':'brand'},'test')
+        assert result == failure
+    asyncio.run(run())
+
+
+def test_browser_launch_interval_applies_across_replacements():
+    from app.engine import orchestrator as orch
+    seed(3);db.set_setting('is_running',1);db.set_setting('thread_launch_interval_sec','0.04')
+    profile={**PROFILE,'status':'ready','fingerprint':json.dumps({'viewport':{'width':390,'height':844},'user_agent':'test'})}
+    async def run():
+        o=orch.TaskOrchestrator();starts=[]
+        def launch():
+            starts.append(asyncio.get_running_loop().time())
+            raise RuntimeError('offline launch fixture')
+        with patch.object(o,'get_or_create_profile',new=AsyncMock(return_value=profile)),patch.object(orch,'async_playwright',side_effect=launch):
+            await asyncio.gather(o.execute_worker_task(),o.execute_worker_task())
+            await o.execute_worker_task()
+        assert len(starts)==3
+        assert all(b-a >= .035 for a,b in zip(starts,starts[1:]))
+    asyncio.run(run())
+
+
+def test_empty_search_document_is_not_domain_absence():
+    async def run():
+        page=page_fixture();page.query_selector_all=AsyncMock(return_value=[])
+        with patch.object(asyncio,'sleep',new=AsyncMock()):
+            result=await promo._search_and_click(page,'query','213','example.test','test')
+        assert result['status']=='error'
+    asyncio.run(run())
+
+
+def test_checkbox_click_does_not_prove_captcha_was_resolved():
+    async def run():
+        page=page_fixture();page.url='https://ya.ru/showcaptcha'
+        with patch.object(asyncio,'sleep',new=AsyncMock()),patch('app.engine.captcha.handle_yandex_checkbox_captcha',new=AsyncMock(return_value=True)):
+            result=await promo._search_and_click(page,'query','213','example.test','test')
+        assert result['status']=='captcha'
+        page.query_selector_all.assert_not_awaited()
+    asyncio.run(run())
