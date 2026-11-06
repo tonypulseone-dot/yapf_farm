@@ -26,6 +26,7 @@
     </script>
     <!-- Local Precompiled Tailwind CSS (Zero external latency, no JIT lag) -->
     <link rel="stylesheet" href="/static/tailwind.min.css?v=3">
+    <link rel="stylesheet" href="/static/navigation.css?v=1">
     <!-- Local Font Awesome -->
     <link rel="stylesheet" href="/static/fontawesome.min.css?v=3">
     <!-- Local Alpine.js -->
@@ -91,8 +92,9 @@
             <!-- Vertical Navigation Menu -->
             <div class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
                 <button @click="currentTab = 'overview'"
-                        :class="currentTab === 'overview' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
-                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                        :class="{ 'is-active': currentTab === 'overview' }"
+                        :aria-current="currentTab === 'overview' ? 'page' : null"
+                        class="app-nav-item">
                     <span class="flex items-center gap-3">
                         <i class="fa-solid fa-gauge-high text-sm w-4 text-center"></i>
                         <span>Обзор</span>
@@ -100,28 +102,30 @@
                 </button>
 
                 <button @click="currentTab = 'projects'"
-                        :class="currentTab === 'projects' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
-                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                        :class="{ 'is-active': currentTab === 'projects' }"
+                        :aria-current="currentTab === 'projects' ? 'page' : null"
+                        class="app-nav-item">
                     <span class="flex items-center gap-3">
                         <i class="fa-solid fa-folder-tree text-sm w-4 text-center"></i>
                         <span>Проекты & Ключи</span>
                     </span>
-                    <span class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-dark-800 text-slate-300 border border-slate-700/50" x-text="projects.length"></span>
+                    <span class="app-nav-count" x-text="projects.length"></span>
                 </button>
 
                 <button @click="currentTab = 'positions'; onOpenPositionsTab()"
-                        :class="currentTab === 'positions' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
-                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                        :class="{ 'is-active': currentTab === 'positions' }"
+                        :aria-current="currentTab === 'positions' ? 'page' : null"
+                        class="app-nav-item">
                     <span class="flex items-center gap-3">
-                        <i class="fa-solid fa-crosshairs text-sm w-4 text-center text-rose-400"></i>
+                        <i class="fa-solid fa-crosshairs text-sm w-4 text-center"></i>
                         <span>Проверка позиций</span>
                     </span>
-                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/25">ТОП-100</span>
                 </button>
 
                 <button @click="currentTab = 'logs'"
-                        :class="currentTab === 'logs' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
-                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                        :class="{ 'is-active': currentTab === 'logs' }"
+                        :aria-current="currentTab === 'logs' ? 'page' : null"
+                        class="app-nav-item">
                     <span class="flex items-center gap-3">
                         <i class="fa-solid fa-clock-rotate-left text-sm w-4 text-center"></i>
                         <span>История кликов</span>
@@ -129,8 +133,9 @@
                 </button>
 
                 <button @click="currentTab = 'settings'"
-                        :class="currentTab === 'settings' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
-                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                        :class="{ 'is-active': currentTab === 'settings' }"
+                        :aria-current="currentTab === 'settings' ? 'page' : null"
+                        class="app-nav-item">
                     <span class="flex items-center gap-3">
                         <i class="fa-solid fa-sliders text-sm w-4 text-center"></i>
                         <span>Настройки & TG</span>
@@ -138,8 +143,9 @@
                 </button>
 
                 <button @click="currentTab = 'manual'"
-                        :class="currentTab === 'manual' ? 'bg-dark-850 text-blue-400 font-semibold border-l-4 border-blue-500' : 'text-slate-400 hover:text-slate-200 hover:bg-dark-850/60 border-l-4 border-transparent'"
-                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-r-xl text-xs sm:text-sm transition group">
+                        :class="{ 'is-active': currentTab === 'manual' }"
+                        :aria-current="currentTab === 'manual' ? 'page' : null"
+                        class="app-nav-item">
                     <span class="flex items-center gap-3">
                         <i class="fa-solid fa-book-open text-sm w-4 text-center"></i>
                         <span>База знаний</span>
@@ -276,36 +282,41 @@
                     </div>
                     <div class="space-y-1">
                         <button @click="currentTab = 'overview'; mobileNavOpen = false"
-                                :class="currentTab === 'overview' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
-                                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm">
-                            <i class="fa-solid fa-gauge-high w-4"></i> Обзор
+                                :class="{ 'is-active': currentTab === 'overview' }"
+                                :aria-current="currentTab === 'overview' ? 'page' : null"
+                                class="app-nav-item">
+                            <span class="flex items-center gap-3"><i class="fa-solid fa-gauge-high w-4"></i> Обзор</span>
                         </button>
                         <button @click="currentTab = 'projects'; mobileNavOpen = false"
-                                :class="currentTab === 'projects' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
-                                class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm">
+                                :class="{ 'is-active': currentTab === 'projects' }"
+                                :aria-current="currentTab === 'projects' ? 'page' : null"
+                                class="app-nav-item">
                             <span class="flex items-center gap-3"><i class="fa-solid fa-folder-tree w-4"></i> Проекты & Ключи</span>
-                            <span class="px-2 py-0.5 rounded-full text-xs bg-dark-800" x-text="projects.length"></span>
+                            <span class="app-nav-count" x-text="projects.length"></span>
                         </button>
                         <button @click="currentTab = 'positions'; onOpenPositionsTab(); mobileNavOpen = false"
-                                :class="currentTab === 'positions' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
-                                class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm">
-                            <span class="flex items-center gap-3"><i class="fa-solid fa-crosshairs w-4 text-rose-400"></i> Проверка позиций</span>
-                            <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300">ТОП-100</span>
+                                :class="{ 'is-active': currentTab === 'positions' }"
+                                :aria-current="currentTab === 'positions' ? 'page' : null"
+                                class="app-nav-item">
+                            <span class="flex items-center gap-3"><i class="fa-solid fa-crosshairs w-4"></i> Проверка позиций</span>
                         </button>
                         <button @click="currentTab = 'logs'; mobileNavOpen = false"
-                                :class="currentTab === 'logs' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
-                                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm">
-                            <i class="fa-solid fa-clock-rotate-left w-4"></i> История кликов
+                                :class="{ 'is-active': currentTab === 'logs' }"
+                                :aria-current="currentTab === 'logs' ? 'page' : null"
+                                class="app-nav-item">
+                            <span class="flex items-center gap-3"><i class="fa-solid fa-clock-rotate-left w-4"></i> История кликов</span>
                         </button>
                         <button @click="currentTab = 'settings'; mobileNavOpen = false"
-                                :class="currentTab === 'settings' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
-                                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm">
-                            <i class="fa-solid fa-sliders w-4"></i> Настройки & TG
+                                :class="{ 'is-active': currentTab === 'settings' }"
+                                :aria-current="currentTab === 'settings' ? 'page' : null"
+                                class="app-nav-item">
+                            <span class="flex items-center gap-3"><i class="fa-solid fa-sliders w-4"></i> Настройки & TG</span>
                         </button>
                         <button @click="currentTab = 'manual'; mobileNavOpen = false"
-                                :class="currentTab === 'manual' ? 'bg-dark-850 text-blue-400 font-semibold' : 'text-slate-400 hover:text-white'"
-                                class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm">
-                            <i class="fa-solid fa-book-open w-4"></i> База знаний
+                                :class="{ 'is-active': currentTab === 'manual' }"
+                                :aria-current="currentTab === 'manual' ? 'page' : null"
+                                class="app-nav-item">
+                            <span class="flex items-center gap-3"><i class="fa-solid fa-book-open w-4"></i> База знаний</span>
                         </button>
                     </div>
                 </div>
