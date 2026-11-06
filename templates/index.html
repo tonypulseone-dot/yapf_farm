@@ -27,6 +27,7 @@
     <!-- Local Precompiled Tailwind CSS (Zero external latency, no JIT lag) -->
     <link rel="stylesheet" href="/static/tailwind.min.css?v=3">
     <link rel="stylesheet" href="/static/navigation.css?v=1">
+    <link rel="stylesheet" href="/static/panel-theme.css?v=1">
     <!-- Local Font Awesome -->
     <link rel="stylesheet" href="/static/fontawesome.min.css?v=3">
     <!-- Local Alpine.js -->
@@ -730,7 +731,7 @@
                                         <h4 class="font-bold text-sm sm:text-base text-slate-100 truncate" x-text="p.name"></h4>
                                         <!-- Region badge -->
                                         <span class="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-[11px] font-mono flex items-center gap-1">
-                                            <i class="fa-solid fa-location-dot text-[10px]"></i> LR: <span x-text="p.default_region || '213'"></span>
+                                            <i class="fa-solid fa-location-dot text-[10px]"></i> <span :title="projectRegionCodes(p).map(code => getRegionName(code)).join(', ')" x-text="projectRegionCodes(p).length > 1 ? projectRegionCodes(p).length + ' регионов' : getRegionName(p.default_region || '213')"></span>
                                         </span>
                                         <!-- Brand tail badge -->
                                         <span x-show="p.brand_tail" class="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded text-[11px] font-mono flex items-center gap-1">
@@ -786,10 +787,10 @@
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-800/60">
-                                    <template x-for="k in p.keywords" :key="k.id">
+                                    <template x-for="k in pagedKeywords(p)" :key="k.id">
                                         <tr class="hover:bg-dark-850/40">
                                             <td class="py-2.5 px-3 font-medium text-slate-200" x-text="k.keyword"></td>
-                                            <td class="py-2.5 px-3 font-mono text-blue-400" x-text="k.geo_region"></td>
+                                            <td class="py-2.5 px-3 text-slate-300" x-text="getRegionName(k.geo_region) + ' · LR ' + k.geo_region"></td>
                                             <td class="py-2.5 px-3 font-mono">
                                                 <span x-show="k.brand_tail || p.brand_tail" class="text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded text-[10px]" x-text="k.brand_tail || p.brand_tail"></span>
                                                 <span x-show="!k.brand_tail && !p.brand_tail" class="text-slate-600">—</span>
@@ -818,6 +819,14 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                        <div class="keyword-pagination" x-show="(p.keywords || []).length > 10">
+                            <span x-text="keywordRange(p)"></span>
+                            <div class="flex items-center gap-2">
+                                <button class="quiet-button" @click="setKeywordPage(p, keywordPage(p) - 1)" :disabled="keywordPage(p) <= 1" aria-label="Предыдущая страница ключей">Назад</button>
+                                <span x-text="keywordPage(p) + ' / ' + keywordPages(p)"></span>
+                                <button class="quiet-button" @click="setKeywordPage(p, keywordPage(p) + 1)" :disabled="keywordPage(p) >= keywordPages(p)" aria-label="Следующая страница ключей">Далее</button>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -1991,7 +2000,7 @@
                                 </div>
                             </div>
 
-                            <a href="https://t.me/YAPF_Farm_bot" target="_blank" class="w-full py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl font-semibold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 active:scale-95">
+                            <a href="https://t.me/YAPF_Farm_bot" target="_blank" class="w-full py-2.5 bg-sky-600 hover:bg-sky-500 panel-primary-link rounded-xl font-semibold text-xs transition flex items-center justify-center gap-2 shadow-lg shadow-sky-600/20 active:scale-95">
                                 <i class="fa-brands fa-telegram text-base"></i> Открыть @YAPF_Farm_bot в Telegram
                             </a>
                         </div>
@@ -2633,213 +2642,6 @@
                 </div>
             </div>
 
-            <!-- Region selector for ALL keys -->
-            <div class="p-3 bg-dark-950 rounded-xl border border-slate-800/80 space-y-2">
-                <div class="flex items-center justify-between">
-                    <label class="text-xs text-slate-200 font-semibold flex items-center gap-1.5">
-                        <i class="fa-solid fa-location-dot text-blue-400"></i> Регион Яндекса (LR) для всех ключей
-                    </label>
-                    <span class="text-[11px] text-slate-400 font-mono">
-                        Выбран: <span class="text-blue-400 font-bold" x-text="getRegionName(newProject.default_region)"></span> (LR <span class="text-blue-400 font-bold" x-text="newProject.default_region"></span>)
-                    </span>
-                </div>
-                <div class="flex items-center gap-2 min-w-0">
-                    <select x-model="newProject.default_region" class="flex-1 min-w-0 bg-dark-900 border border-slate-700 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer truncate">
-                        <optgroup label="Популярные регионы">
-                            <option value="213">Москва (LR 213)</option>
-                            <option value="1">Московская область (LR 1)</option>
-                            <option value="2">Санкт-Петербург (LR 2)</option>
-                            <option value="10174">Ленинградская область (LR 10174)</option>
-                            <option value="225">Вся Россия (LR 225)</option>
-                            <option value="54">Екатеринбург (LR 54)</option>
-                            <option value="65">Новосибирск (LR 65)</option>
-                            <option value="43">Казань (LR 43)</option>
-                            <option value="47">Нижний Новгород (LR 47)</option>
-                            <option value="51">Самара (LR 51)</option>
-                            <option value="39">Ростов-на-Дону (LR 39)</option>
-                            <option value="35">Краснодар (LR 35)</option>
-                            <option value="172">Уфа (LR 172)</option>
-                            <option value="56">Челябинск (LR 56)</option>
-                            <option value="66">Омск (LR 66)</option>
-                            <option value="62">Красноярск (LR 62)</option>
-                            <option value="193">Воронеж (LR 193)</option>
-                            <option value="50">Пермь (LR 50)</option>
-                            <option value="38">Волгоград (LR 38)</option>
-                            <option value="194">Саратов (LR 194)</option>
-                            <option value="55">Тюмень (LR 55)</option>
-                            <option value="239">Сочи (LR 239)</option>
-                            <option value="973">Сургут (LR 973)</option>
-                        </optgroup>
-                        <optgroup label="Все города и регионы РФ (по алфавиту)">
-                            <option value="11316">Абакан (LR 11316)</option>
-                            <option value="1107">Анапа (LR 1107)</option>
-                            <option value="20">Архангельск (LR 20)</option>
-                            <option value="37">Астрахань (LR 37)</option>
-                            <option value="10716">Балашиха (LR 10716)</option>
-                            <option value="197">Барнаул (LR 197)</option>
-                            <option value="4">Белгород (LR 4)</option>
-                            <option value="974">Бийск (LR 974)</option>
-                            <option value="77">Благовещенск (LR 77)</option>
-                            <option value="975">Братск (LR 975)</option>
-                            <option value="191">Брянск (LR 191)</option>
-                            <option value="24">Великий Новгород (LR 24)</option>
-                            <option value="75">Владивосток (LR 75)</option>
-                            <option value="33">Владикавказ (LR 33)</option>
-                            <option value="192">Владимир (LR 192)</option>
-                            <option value="38">Волгоград (LR 38)</option>
-                            <option value="21">Вологда (LR 21)</option>
-                            <option value="193">Воронеж (LR 193)</option>
-                            <option value="1106">Грозный (LR 1106)</option>
-                            <option value="21735">Дзержинский (LR 21735)</option>
-                            <option value="11154">Димитровград (LR 11154)</option>
-                            <option value="214">Долгопрудный (LR 214)</option>
-                            <option value="10725">Домодедово (LR 10725)</option>
-                            <option value="215">Дубна (LR 215)</option>
-                            <option value="11464">Евпатория (LR 11464)</option>
-                            <option value="54">Екатеринбург (LR 54)</option>
-                            <option value="10651">Елец (LR 10651)</option>
-                            <option value="11060">Ессентуки (LR 11060)</option>
-                            <option value="20571">Жуковский (LR 20571)</option>
-                            <option value="11228">Златоуст (LR 11228)</option>
-                            <option value="5">Иваново (LR 5)</option>
-                            <option value="44">Ижевск (LR 44)</option>
-                            <option value="63">Иркутск (LR 63)</option>
-                            <option value="41">Йошкар-Ола (LR 41)</option>
-                            <option value="43">Казань (LR 43)</option>
-                            <option value="22">Калининград (LR 22)</option>
-                            <option value="6">Калуга (LR 6)</option>
-                            <option value="11166">Каменск-Уральский (LR 11166)</option>
-                            <option value="64">Кемерово (LR 64)</option>
-                            <option value="11467">Керчь (LR 11467)</option>
-                            <option value="46">Киров (LR 46)</option>
-                            <option value="11062">Кисловодск (LR 11062)</option>
-                            <option value="10733">Коломна (LR 10733)</option>
-                            <option value="11450">Комсомольск-на-Амуре (LR 11450)</option>
-                            <option value="11229">Копейск (LR 11229)</option>
-                            <option value="20523">Королёв (LR 20523)</option>
-                            <option value="7">Кострома (LR 7)</option>
-                            <option value="10735">Красногорск (LR 10735)</option>
-                            <option value="35">Краснодар (LR 35)</option>
-                            <option value="62">Красноярск (LR 62)</option>
-                            <option value="53">Курган (LR 53)</option>
-                            <option value="8">Курск (LR 8)</option>
-                            <option value="9">Липецк (LR 9)</option>
-                            <option value="10738">Люберцы (LR 10738)</option>
-                            <option value="79">Магадан (LR 79)</option>
-                            <option value="235">Магнитогорск (LR 235)</option>
-                            <option value="1098">Майкоп (LR 1098)</option>
-                            <option value="11010">Махачкала (LR 11010)</option>
-                            <option value="11230">Миасс (LR 11230)</option>
-                            <option value="213">Москва (LR 213)</option>
-                            <option value="23">Мурманск (LR 23)</option>
-                            <option value="10659">Муром (LR 10659)</option>
-                            <option value="10740">Мытищи (LR 10740)</option>
-                            <option value="236">Набережные Челны (LR 236)</option>
-                            <option value="30">Нальчик (LR 30)</option>
-                            <option value="11453">Находка (LR 11453)</option>
-                            <option value="11064">Невинномысск (LR 11064)</option>
-                            <option value="11115">Нефтекамск (LR 11115)</option>
-                            <option value="11195">Нефтеюганск (LR 11195)</option>
-                            <option value="1091">Нижневартовск (LR 1091)</option>
-                            <option value="11116">Нижнекамск (LR 11116)</option>
-                            <option value="47">Нижний Новгород (LR 47)</option>
-                            <option value="11168">Нижний Тагил (LR 11168)</option>
-                            <option value="237">Новокузнецк (LR 237)</option>
-                            <option value="970">Новороссийск (LR 970)</option>
-                            <option value="65">Новосибирск (LR 65)</option>
-                            <option value="238">Новочеркасск (LR 238)</option>
-                            <option value="11235">Новый Уренгой (LR 11235)</option>
-                            <option value="10742">Ногинск (LR 10742)</option>
-                            <option value="11311">Норильск (LR 11311)</option>
-                            <option value="11232">Ноябрьск (LR 11232)</option>
-                            <option value="10694">Обнинск (LR 10694)</option>
-                            <option value="10743">Одинцово (LR 10743)</option>
-                            <option value="11112">Октябрьский (LR 11112)</option>
-                            <option value="66">Омск (LR 66)</option>
-                            <option value="10">Орёл (LR 10)</option>
-                            <option value="48">Оренбург (LR 48)</option>
-                            <option value="10744">Орехово-Зуево (LR 10744)</option>
-                            <option value="11089">Орск (LR 11089)</option>
-                            <option value="49">Пенза (LR 49)</option>
-                            <option value="11171">Первоуральск (LR 11171)</option>
-                            <option value="50">Пермь (LR 50)</option>
-                            <option value="18">Петрозаводск (LR 18)</option>
-                            <option value="78">Петропавловск-Камчатский (LR 78)</option>
-                            <option value="10747">Подольск (LR 10747)</option>
-                            <option value="11283">Прокопьевск (LR 11283)</option>
-                            <option value="25">Псков (LR 25)</option>
-                            <option value="11063">Пятигорск (LR 11063)</option>
-                            <option value="39">Ростов-на-Дону (LR 39)</option>
-                            <option value="11270">Рубцовск (LR 11270)</option>
-                            <option value="10840">Рыбинск (LR 10840)</option>
-                            <option value="11">Рязань (LR 11)</option>
-                            <option value="11113">Салават (LR 11113)</option>
-                            <option value="58">Салехард (LR 58)</option>
-                            <option value="51">Самара (LR 51)</option>
-                            <option value="2">Санкт-Петербург (LR 2)</option>
-                            <option value="42">Саранск (LR 42)</option>
-                            <option value="194">Саратов (LR 194)</option>
-                            <option value="959">Севастополь (LR 959)</option>
-                            <option value="10843">Северодвинск (LR 10843)</option>
-                            <option value="11354">Северск (LR 11354)</option>
-                            <option value="10752">Сергиев Посад (LR 10752)</option>
-                            <option value="10753">Серпухов (LR 10753)</option>
-                            <option value="146">Симферополь (LR 146)</option>
-                            <option value="12">Смоленск (LR 12)</option>
-                            <option value="239">Сочи (LR 239)</option>
-                            <option value="36">Ставрополь (LR 36)</option>
-                            <option value="10649">Старый Оскол (LR 10649)</option>
-                            <option value="11114">Стерлитамак (LR 11114)</option>
-                            <option value="973">Сургут (LR 973)</option>
-                            <option value="11135">Сызрань (LR 11135)</option>
-                            <option value="19">Сыктывкар (LR 19)</option>
-                            <option value="11036">Таганрог (LR 11036)</option>
-                            <option value="13">Тамбов (LR 13)</option>
-                            <option value="14">Тверь (LR 14)</option>
-                            <option value="240">Тольятти (LR 240)</option>
-                            <option value="67">Томск (LR 67)</option>
-                            <option value="15">Тула (LR 15)</option>
-                            <option value="55">Тюмень (LR 55)</option>
-                            <option value="198">Улан-Удэ (LR 198)</option>
-                            <option value="195">Ульяновск (LR 195)</option>
-                            <option value="11457">Уссурийск (LR 11457)</option>
-                            <option value="172">Уфа (LR 172)</option>
-                            <option value="76">Хабаровск (LR 76)</option>
-                            <option value="57">Ханты-Мансийск (LR 57)</option>
-                            <option value="11024">Хасавюрт (LR 11024)</option>
-                            <option value="10758">Химки (LR 10758)</option>
-                            <option value="45">Чебоксары (LR 45)</option>
-                            <option value="56">Челябинск (LR 56)</option>
-                            <option value="968">Череповец (LR 968)</option>
-                            <option value="1104">Черкесск (LR 1104)</option>
-                            <option value="68">Чита (LR 68)</option>
-                            <option value="11041">Шахты (LR 11041)</option>
-                            <option value="10765">Щелково (LR 10765)</option>
-                            <option value="10763">Электросталь (LR 10763)</option>
-                            <option value="1095">Элиста (LR 1095)</option>
-                            <option value="11147">Энгельс (LR 11147)</option>
-                            <option value="80">Южно-Сахалинск (LR 80)</option>
-                            <option value="74">Якутск (LR 74)</option>
-                            <option value="11469">Ялта (LR 11469)</option>
-                            <option value="16">Ярославль (LR 16)</option>
-                        </optgroup>
-                        <optgroup label="Страны и города СНГ">
-                            <option value="149">Беларусь (вся страна) (LR 149)</option>
-                            <option value="157">Минск (LR 157)</option>
-                            <option value="159">Казахстан (вся страна) (LR 159)</option>
-                            <option value="162">Алматы (LR 162)</option>
-                            <option value="163">Астана (LR 163)</option>
-                            <option value="171">Узбекистан (вся страна) (LR 171)</option>
-                            <option value="211">Ташкент (LR 211)</option>
-                            <option value="168">Армения (Ереван) (LR 168)</option>
-                            <option value="169">Грузия (Тбилиси) (LR 169)</option>
-                            <option value="167">Азербайджан (Баку) (LR 167)</option>
-                        </optgroup>
-                    </select>
-                    <input type="text" x-model="newProject.default_region" placeholder="213" class="w-16 sm:w-20 shrink-0 bg-dark-900 border border-slate-700 rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500" title="Ручной ввод кода LR">
-                </div>
-            </div>
-
             <!-- Brand Tail (Хвост для запросов не в топе) -->
             <div class="p-3 bg-dark-950 rounded-xl border border-purple-500/20 space-y-2">
                 <div class="flex items-center justify-between">
@@ -2870,6 +2672,32 @@
                 <textarea x-model="newProject.keywords_text" rows="5" placeholder="купить пластиковые окна москва&#10;установка стеклопакетов недорого&#10;остекление балконов цена | 15" class="w-full bg-dark-950 border border-slate-800 rounded-lg p-3 text-xs sm:text-sm text-slate-200 font-mono focus:outline-none focus:border-blue-500 placeholder:text-slate-600"></textarea>
                 <p class="text-[11px] text-slate-500">Можно указать персональный суточный лимит через черту: <code>запрос | 20</code></p>
             </div>
+            <div class="region-picker">
+                    <label class="block text-xs font-medium mb-2">Регионы поиска — можно выбрать несколько</label>
+                    <div class="region-chips">
+                        <template x-for="code in newProject.geo_regions" :key="code">
+                            <button type="button" class="region-chip" @click="toggleKeywordRegion('newProject', code)" :aria-label="'Убрать регион ' + getRegionName(code)">
+                                <span x-text="getRegionName(code)"></span><span aria-hidden="true">×</span>
+                            </button>
+                        </template>
+                    </div>
+                    <input type="search" x-model="projectRegionSearch" placeholder="Найти город или код LR" aria-label="Поиск региона" class="region-search">
+                    <div class="region-options">
+                        <template x-for="r in keywordRegionOptions(projectRegionSearch)" :key="r.code">
+                            <label class="region-option">
+                                <input type="checkbox" :value="r.code" x-model="newProject.geo_regions" :disabled="newProject.geo_regions.length >= 20 && !newProject.geo_regions.includes(r.code)">
+                                <span x-text="r.city"></span><span class="region-code" x-text="'LR ' + r.code"></span>
+                            </label>
+                        </template>
+                        <p class="text-xs p-2" x-show="keywordRegionOptions(projectRegionSearch).length === 0">Регион не найден. Можно добавить числовой код ниже.</p>
+                    </div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <input type="text" inputmode="numeric" x-model="projectRegionCode" placeholder="Код LR" aria-label="Добавить регион по коду" class="region-search">
+                        <button type="button" class="quiet-button" @click="addKeywordRegion('newProject', projectRegionCode); projectRegionCode = ''">Добавить</button>
+                    </div>
+                    <p class="text-xs mt-2 text-slate-400">До 20 регионов. Каждый запрос будет добавлен отдельно для каждого выбранного региона. Суточная цель действует на каждую пару «ключ + регион».</p>
+                </div>
+
 
             <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
                 <button type="button" @click="showAddProject = false" class="px-4 py-2 bg-dark-850 hover:bg-dark-800 text-slate-300 text-xs rounded-lg font-medium">Отмена</button>
@@ -2891,209 +2719,31 @@
                 <button @click="showAddKeyword = false" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="block text-xs text-slate-300 font-medium">Регион поиска (LR)</label>
-                        <span class="text-[10px] text-slate-400 font-mono">
-                            <span class="text-blue-400 font-bold" x-text="getRegionName(newKeyword.geo_region)"></span>
-                        </span>
+            <div class="space-y-3">
+                <div class="region-picker">
+                    <label class="block text-xs font-medium mb-2">Регионы поиска — можно выбрать несколько</label>
+                    <div class="region-chips">
+                        <template x-for="code in newKeyword.geo_regions" :key="code">
+                            <button type="button" class="region-chip" @click="toggleKeywordRegion('newKeyword', code)" :aria-label="'Убрать регион ' + getRegionName(code)">
+                                <span x-text="getRegionName(code)"></span><span aria-hidden="true">×</span>
+                            </button>
+                        </template>
                     </div>
-                    <div class="flex items-center gap-1.5">
-                        <select x-model="newKeyword.geo_region" class="flex-1 bg-dark-950 border border-slate-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-slate-200 focus:outline-none focus:border-blue-500 cursor-pointer">
-                        <optgroup label="Популярные регионы">
-                            <option value="213">Москва (LR 213)</option>
-                            <option value="1">Московская область (LR 1)</option>
-                            <option value="2">Санкт-Петербург (LR 2)</option>
-                            <option value="10174">Ленинградская область (LR 10174)</option>
-                            <option value="225">Вся Россия (LR 225)</option>
-                            <option value="54">Екатеринбург (LR 54)</option>
-                            <option value="65">Новосибирск (LR 65)</option>
-                            <option value="43">Казань (LR 43)</option>
-                            <option value="47">Нижний Новгород (LR 47)</option>
-                            <option value="51">Самара (LR 51)</option>
-                            <option value="39">Ростов-на-Дону (LR 39)</option>
-                            <option value="35">Краснодар (LR 35)</option>
-                            <option value="172">Уфа (LR 172)</option>
-                            <option value="56">Челябинск (LR 56)</option>
-                            <option value="66">Омск (LR 66)</option>
-                            <option value="62">Красноярск (LR 62)</option>
-                            <option value="193">Воронеж (LR 193)</option>
-                            <option value="50">Пермь (LR 50)</option>
-                            <option value="38">Волгоград (LR 38)</option>
-                            <option value="194">Саратов (LR 194)</option>
-                            <option value="55">Тюмень (LR 55)</option>
-                            <option value="239">Сочи (LR 239)</option>
-                            <option value="973">Сургут (LR 973)</option>
-                        </optgroup>
-                        <optgroup label="Все города и регионы РФ (по алфавиту)">
-                            <option value="11316">Абакан (LR 11316)</option>
-                            <option value="1107">Анапа (LR 1107)</option>
-                            <option value="20">Архангельск (LR 20)</option>
-                            <option value="37">Астрахань (LR 37)</option>
-                            <option value="10716">Балашиха (LR 10716)</option>
-                            <option value="197">Барнаул (LR 197)</option>
-                            <option value="4">Белгород (LR 4)</option>
-                            <option value="974">Бийск (LR 974)</option>
-                            <option value="77">Благовещенск (LR 77)</option>
-                            <option value="975">Братск (LR 975)</option>
-                            <option value="191">Брянск (LR 191)</option>
-                            <option value="24">Великий Новгород (LR 24)</option>
-                            <option value="75">Владивосток (LR 75)</option>
-                            <option value="33">Владикавказ (LR 33)</option>
-                            <option value="192">Владимир (LR 192)</option>
-                            <option value="38">Волгоград (LR 38)</option>
-                            <option value="21">Вологда (LR 21)</option>
-                            <option value="193">Воронеж (LR 193)</option>
-                            <option value="1106">Грозный (LR 1106)</option>
-                            <option value="21735">Дзержинский (LR 21735)</option>
-                            <option value="11154">Димитровград (LR 11154)</option>
-                            <option value="214">Долгопрудный (LR 214)</option>
-                            <option value="10725">Домодедово (LR 10725)</option>
-                            <option value="215">Дубна (LR 215)</option>
-                            <option value="11464">Евпатория (LR 11464)</option>
-                            <option value="54">Екатеринбург (LR 54)</option>
-                            <option value="10651">Елец (LR 10651)</option>
-                            <option value="11060">Ессентуки (LR 11060)</option>
-                            <option value="20571">Жуковский (LR 20571)</option>
-                            <option value="11228">Златоуст (LR 11228)</option>
-                            <option value="5">Иваново (LR 5)</option>
-                            <option value="44">Ижевск (LR 44)</option>
-                            <option value="63">Иркутск (LR 63)</option>
-                            <option value="41">Йошкар-Ола (LR 41)</option>
-                            <option value="43">Казань (LR 43)</option>
-                            <option value="22">Калининград (LR 22)</option>
-                            <option value="6">Калуга (LR 6)</option>
-                            <option value="11166">Каменск-Уральский (LR 11166)</option>
-                            <option value="64">Кемерово (LR 64)</option>
-                            <option value="11467">Керчь (LR 11467)</option>
-                            <option value="46">Киров (LR 46)</option>
-                            <option value="11062">Кисловодск (LR 11062)</option>
-                            <option value="10733">Коломна (LR 10733)</option>
-                            <option value="11450">Комсомольск-на-Амуре (LR 11450)</option>
-                            <option value="11229">Копейск (LR 11229)</option>
-                            <option value="20523">Королёв (LR 20523)</option>
-                            <option value="7">Кострома (LR 7)</option>
-                            <option value="10735">Красногорск (LR 10735)</option>
-                            <option value="35">Краснодар (LR 35)</option>
-                            <option value="62">Красноярск (LR 62)</option>
-                            <option value="53">Курган (LR 53)</option>
-                            <option value="8">Курск (LR 8)</option>
-                            <option value="9">Липецк (LR 9)</option>
-                            <option value="10738">Люберцы (LR 10738)</option>
-                            <option value="79">Магадан (LR 79)</option>
-                            <option value="235">Магнитогорск (LR 235)</option>
-                            <option value="1098">Майкоп (LR 1098)</option>
-                            <option value="11010">Махачкала (LR 11010)</option>
-                            <option value="11230">Миасс (LR 11230)</option>
-                            <option value="213">Москва (LR 213)</option>
-                            <option value="23">Мурманск (LR 23)</option>
-                            <option value="10659">Муром (LR 10659)</option>
-                            <option value="10740">Мытищи (LR 10740)</option>
-                            <option value="236">Набережные Челны (LR 236)</option>
-                            <option value="30">Нальчик (LR 30)</option>
-                            <option value="11453">Находка (LR 11453)</option>
-                            <option value="11064">Невинномысск (LR 11064)</option>
-                            <option value="11115">Нефтекамск (LR 11115)</option>
-                            <option value="11195">Нефтеюганск (LR 11195)</option>
-                            <option value="1091">Нижневартовск (LR 1091)</option>
-                            <option value="11116">Нижнекамск (LR 11116)</option>
-                            <option value="47">Нижний Новгород (LR 47)</option>
-                            <option value="11168">Нижний Тагил (LR 11168)</option>
-                            <option value="237">Новокузнецк (LR 237)</option>
-                            <option value="970">Новороссийск (LR 970)</option>
-                            <option value="65">Новосибирск (LR 65)</option>
-                            <option value="238">Новочеркасск (LR 238)</option>
-                            <option value="11235">Новый Уренгой (LR 11235)</option>
-                            <option value="10742">Ногинск (LR 10742)</option>
-                            <option value="11311">Норильск (LR 11311)</option>
-                            <option value="11232">Ноябрьск (LR 11232)</option>
-                            <option value="10694">Обнинск (LR 10694)</option>
-                            <option value="10743">Одинцово (LR 10743)</option>
-                            <option value="11112">Октябрьский (LR 11112)</option>
-                            <option value="66">Омск (LR 66)</option>
-                            <option value="10">Орёл (LR 10)</option>
-                            <option value="48">Оренбург (LR 48)</option>
-                            <option value="10744">Орехово-Зуево (LR 10744)</option>
-                            <option value="11089">Орск (LR 11089)</option>
-                            <option value="49">Пенза (LR 49)</option>
-                            <option value="11171">Первоуральск (LR 11171)</option>
-                            <option value="50">Пермь (LR 50)</option>
-                            <option value="18">Петрозаводск (LR 18)</option>
-                            <option value="78">Петропавловск-Камчатский (LR 78)</option>
-                            <option value="10747">Подольск (LR 10747)</option>
-                            <option value="11283">Прокопьевск (LR 11283)</option>
-                            <option value="25">Псков (LR 25)</option>
-                            <option value="11063">Пятигорск (LR 11063)</option>
-                            <option value="39">Ростов-на-Дону (LR 39)</option>
-                            <option value="11270">Рубцовск (LR 11270)</option>
-                            <option value="10840">Рыбинск (LR 10840)</option>
-                            <option value="11">Рязань (LR 11)</option>
-                            <option value="11113">Салават (LR 11113)</option>
-                            <option value="58">Салехард (LR 58)</option>
-                            <option value="51">Самара (LR 51)</option>
-                            <option value="2">Санкт-Петербург (LR 2)</option>
-                            <option value="42">Саранск (LR 42)</option>
-                            <option value="194">Саратов (LR 194)</option>
-                            <option value="959">Севастополь (LR 959)</option>
-                            <option value="10843">Северодвинск (LR 10843)</option>
-                            <option value="11354">Северск (LR 11354)</option>
-                            <option value="10752">Сергиев Посад (LR 10752)</option>
-                            <option value="10753">Серпухов (LR 10753)</option>
-                            <option value="146">Симферополь (LR 146)</option>
-                            <option value="12">Смоленск (LR 12)</option>
-                            <option value="239">Сочи (LR 239)</option>
-                            <option value="36">Ставрополь (LR 36)</option>
-                            <option value="10649">Старый Оскол (LR 10649)</option>
-                            <option value="11114">Стерлитамак (LR 11114)</option>
-                            <option value="973">Сургут (LR 973)</option>
-                            <option value="11135">Сызрань (LR 11135)</option>
-                            <option value="19">Сыктывкар (LR 19)</option>
-                            <option value="11036">Таганрог (LR 11036)</option>
-                            <option value="13">Тамбов (LR 13)</option>
-                            <option value="14">Тверь (LR 14)</option>
-                            <option value="240">Тольятти (LR 240)</option>
-                            <option value="67">Томск (LR 67)</option>
-                            <option value="15">Тула (LR 15)</option>
-                            <option value="55">Тюмень (LR 55)</option>
-                            <option value="198">Улан-Удэ (LR 198)</option>
-                            <option value="195">Ульяновск (LR 195)</option>
-                            <option value="11457">Уссурийск (LR 11457)</option>
-                            <option value="172">Уфа (LR 172)</option>
-                            <option value="76">Хабаровск (LR 76)</option>
-                            <option value="57">Ханты-Мансийск (LR 57)</option>
-                            <option value="11024">Хасавюрт (LR 11024)</option>
-                            <option value="10758">Химки (LR 10758)</option>
-                            <option value="45">Чебоксары (LR 45)</option>
-                            <option value="56">Челябинск (LR 56)</option>
-                            <option value="968">Череповец (LR 968)</option>
-                            <option value="1104">Черкесск (LR 1104)</option>
-                            <option value="68">Чита (LR 68)</option>
-                            <option value="11041">Шахты (LR 11041)</option>
-                            <option value="10765">Щелково (LR 10765)</option>
-                            <option value="10763">Электросталь (LR 10763)</option>
-                            <option value="1095">Элиста (LR 1095)</option>
-                            <option value="11147">Энгельс (LR 11147)</option>
-                            <option value="80">Южно-Сахалинск (LR 80)</option>
-                            <option value="74">Якутск (LR 74)</option>
-                            <option value="11469">Ялта (LR 11469)</option>
-                            <option value="16">Ярославль (LR 16)</option>
-                        </optgroup>
-                        <optgroup label="Страны и города СНГ">
-                            <option value="149">Беларусь (вся страна) (LR 149)</option>
-                            <option value="157">Минск (LR 157)</option>
-                            <option value="159">Казахстан (вся страна) (LR 159)</option>
-                            <option value="162">Алматы (LR 162)</option>
-                            <option value="163">Астана (LR 163)</option>
-                            <option value="171">Узбекистан (вся страна) (LR 171)</option>
-                            <option value="211">Ташкент (LR 211)</option>
-                            <option value="168">Армения (Ереван) (LR 168)</option>
-                            <option value="169">Грузия (Тбилиси) (LR 169)</option>
-                            <option value="167">Азербайджан (Баку) (LR 167)</option>
-                        </optgroup>
-                        </select>
-                        <input type="text" x-model="newKeyword.geo_region" placeholder="213" class="w-16 bg-dark-950 border border-slate-800 rounded-lg px-2 py-2 text-xs sm:text-sm text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500" title="Ручной ввод кода LR">
+                    <input type="search" x-model="keywordRegionSearch" placeholder="Найти город или код LR" aria-label="Поиск региона" class="region-search">
+                    <div class="region-options">
+                        <template x-for="r in keywordRegionOptions(keywordRegionSearch)" :key="r.code">
+                            <label class="region-option">
+                                <input type="checkbox" :value="r.code" x-model="newKeyword.geo_regions" :disabled="newKeyword.geo_regions.length >= 20 && !newKeyword.geo_regions.includes(r.code)">
+                                <span x-text="r.city"></span><span class="region-code" x-text="'LR ' + r.code"></span>
+                            </label>
+                        </template>
+                        <p class="text-xs p-2" x-show="keywordRegionOptions(keywordRegionSearch).length === 0">Регион не найден. Можно добавить числовой код ниже.</p>
                     </div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <input type="text" inputmode="numeric" x-model="keywordRegionCode" placeholder="Код LR" aria-label="Добавить регион по коду" class="region-search">
+                        <button type="button" class="quiet-button" @click="addKeywordRegion('newKeyword', keywordRegionCode); keywordRegionCode = ''">Добавить</button>
+                    </div>
+                    <p class="text-xs mt-2 text-slate-400">До 20 регионов. Каждый запрос будет добавлен отдельно для каждого выбранного региона. Суточная цель действует на каждую пару «ключ + регион».</p>
                 </div>
                 <div>
                     <label class="block text-xs text-slate-300 font-medium mb-1">Кликов в сутки</label>
@@ -3418,6 +3068,27 @@
                         ready_percent: 37.5
                     }
                 },
+                keywordPageByProject: {},
+                keywordRegionSearch: '',
+                keywordRegionCode: '',
+                projectRegionSearch: '',
+                projectRegionCode: '',
+                projectRegionCodes(p) { return [...new Set((p.keywords || []).map(k => String(k.geo_region || p.default_region || '213')))]; },
+                keywordPages(p) { return Math.max(1, Math.ceil((p.keywords || []).length / 10)); },
+                keywordPage(p) { return Math.max(1, Math.min(this.keywordPageByProject[p.id] || 1, this.keywordPages(p))); },
+                setKeywordPage(p, page) { this.keywordPageByProject = {...this.keywordPageByProject, [p.id]: Math.max(1, Math.min(page, this.keywordPages(p)))}; },
+                pagedKeywords(p) { const start = (this.keywordPage(p) - 1) * 10; return (p.keywords || []).slice(start, start + 10); },
+                keywordRange(p) { const n = (p.keywords || []).length; return n ? `${(this.keywordPage(p)-1)*10+1}–${Math.min(this.keywordPage(p)*10,n)} из ${n}` : 'Нет ключей'; },
+                keywordRegionOptions(search) { const q = String(search || '').trim().toLowerCase(); return this.regions.filter(r => !q || r.city.toLowerCase().includes(q) || r.code.includes(q)); },
+                toggleKeywordRegion(model, code) { this[model].geo_regions = this[model].geo_regions.filter(c => c !== code); },
+                addKeywordRegion(model, value) {
+                    const raw = String(value || '').trim();
+                    if (!/^[0-9]{1,7}$/.test(raw) || Number(raw) < 1) { alert('Введите числовой код LR'); return; }
+                    const code = String(Number(raw));
+                    if (this[model].geo_regions.includes(code)) return;
+                    if (this[model].geo_regions.length >= 20) { alert('Можно выбрать до 20 регионов'); return; }
+                    this[model].geo_regions = [...this[model].geo_regions, code];
+                },
                 projects: [],
                 logs: [],
                 settings: {},
@@ -3429,6 +3100,7 @@
                     name: '', 
                     domain: '', 
                     default_region: '213', 
+                    geo_regions: ['213'],
                     brand_tail: '', 
                     use_brand_tail: true, 
                     keywords_text: '', 
@@ -3446,6 +3118,7 @@
                 newKeyword: { 
                     keywords_text: '', 
                     geo_region: '213', 
+                    geo_regions: ['213'],
                     daily_goal: 10,
                     brand_tail: ''
                 },
@@ -3839,11 +3512,14 @@
                         name: '',
                         domain: '',
                         default_region: '213',
+                        geo_regions: ['213'],
                         brand_tail: '',
                         use_brand_tail: true,
                         keywords_text: '',
                         daily_goal: 10
                     };
+                    this.projectRegionSearch = '';
+                    this.projectRegionCode = '';
                     this.showAddProject = true;
                 },
 
@@ -3852,9 +3528,13 @@
                     this.newKeyword = {
                         keywords_text: '',
                         geo_region: p.default_region || '213',
+                        geo_regions: [...new Set((p.keywords || []).map(k => String(k.geo_region || p.default_region || '213')))].slice(0,20),
                         daily_goal: 10,
                         brand_tail: p.brand_tail || ''
                     };
+                    if (!this.newKeyword.geo_regions.length) this.newKeyword.geo_regions = [p.default_region || '213'];
+                    this.keywordRegionSearch = '';
+                    this.keywordRegionCode = '';
                     this.showAddKeyword = true;
                 },
 
@@ -3877,7 +3557,9 @@
                     const fd = new FormData();
                     fd.append('name', this.newProject.name);
                     fd.append('domain', this.newProject.domain);
-                    fd.append('default_region', this.newProject.default_region || '213');
+                    if (!this.newProject.geo_regions.length || this.newProject.geo_regions.length > 20) { alert('Выберите от 1 до 20 регионов'); return; }
+                    fd.append('default_region', this.newProject.geo_regions[0]);
+                    fd.append('geo_regions', JSON.stringify(this.newProject.geo_regions));
                     fd.append('brand_tail', this.newProject.brand_tail || '');
                     fd.append('use_brand_tail', this.newProject.use_brand_tail ? 1 : 0);
                     fd.append('keywords_text', this.newProject.keywords_text || '');
@@ -3887,6 +3569,9 @@
                     if (res.ok) {
                         this.showAddProject = false;
                         await this.loadProjects();
+                    } else {
+                        const error = await res.json().catch(() => ({}));
+                        alert(error.detail || error.message || 'Не удалось создать проект');
                     }
                 },
 
@@ -3912,13 +3597,18 @@
                     fd.append('project_id', this.selectedProject.id);
                     fd.append('keywords_text', this.newKeyword.keywords_text);
                     fd.append('daily_goal', this.newKeyword.daily_goal || 10);
-                    fd.append('geo_region', this.newKeyword.geo_region || '213');
+                    if (!this.newKeyword.geo_regions.length || this.newKeyword.geo_regions.length > 20) { alert('Выберите от 1 до 20 регионов'); return; }
+                    fd.append('geo_regions', JSON.stringify(this.newKeyword.geo_regions));
                     fd.append('brand_tail', this.newKeyword.brand_tail || '');
                     
                     const res = await fetch('/api/keywords', { method: 'POST', body: fd });
                     if (res.ok) {
                         this.showAddKeyword = false;
                         await this.loadProjects();
+                        this.setKeywordPage(this.projects.find(p => p.id === this.selectedProject.id) || this.selectedProject, 1);
+                    } else {
+                        const error = await res.json().catch(() => ({}));
+                        alert(error.detail || error.message || 'Не удалось добавить ключи');
                     }
                 },
 

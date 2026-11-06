@@ -1,0 +1,106 @@
+/* Calm, readable palette shared by utility-based panels and new controls. */
+html.dark {
+    color-scheme: dark;
+    --panel-bg: #14161a;
+    --panel-surface: #1b1e23;
+    --panel-inset: #22262d;
+    --panel-text: #e4e7ec;
+    --panel-muted: #a8b0be;
+    --panel-border: #3b424d;
+    --panel-accent: #b0bfd1;
+}
+html:not(.dark) {
+    color-scheme: light;
+    --panel-bg: #edf0f3;
+    --panel-surface: #f9fafb;
+    --panel-inset: #e7ebf0;
+    --panel-text: #202b39;
+    --panel-muted: #526174;
+    --panel-border: #c4cdd8;
+    --panel-accent: #425d7b;
+}
+body { background-color: var(--panel-bg) !important; color: var(--panel-text) !important; }
+html:is(.dark, .light) .bg-dark-950, html:is(.dark, .light) .bg-dark-950\/80, html:is(.dark, .light) .bg-dark-950\/60, html:is(.dark, .light) .bg-dark-950\/40 {
+    background-color: var(--panel-bg) !important;
+}
+html:is(.dark, .light) .bg-dark-900, html:is(.dark, .light) .bg-dark-900\/90, html:is(.dark, .light) .bg-dark-900\/60 {
+    background-color: var(--panel-surface) !important;
+}
+html:is(.dark, .light) .bg-dark-850, html:is(.dark, .light) .bg-dark-850\/80, html:is(.dark, .light) .bg-dark-850\/60, html:is(.dark, .light) .bg-dark-850\/40,
+html:is(.dark, .light) .bg-dark-800, html:is(.dark, .light) .bg-dark-750, html:is(.dark, .light) .bg-dark-700 {
+    background-color: var(--panel-inset) !important;
+}
+html:is(.dark, .light) .text-slate-100, html:is(.dark, .light) .text-slate-200 { color: var(--panel-text) !important; }
+html:is(.dark, .light) .text-slate-300, html:is(.dark, .light) .text-slate-400, html:is(.dark, .light) .text-slate-500, html:is(.dark, .light) .text-slate-600 {
+    color: var(--panel-muted) !important;
+}
+html:is(.dark, .light) .text-blue-300, html:is(.dark, .light) .text-blue-400, html:is(.dark, .light) .text-cyan-300, html:is(.dark, .light) .text-cyan-400,
+html:is(.dark, .light) .text-purple-300, html:is(.dark, .light) .text-purple-400, html:is(.dark, .light) .text-indigo-300, html:is(.dark, .light) .text-indigo-400 {
+    color: var(--panel-accent) !important;
+}
+html.dark .text-emerald-300, html.dark .text-emerald-400 { color: #9ac4ad !important; }
+html.dark .text-rose-300, html.dark .text-rose-400, html.dark .text-red-400 { color: #deb0b6 !important; }
+html.dark .text-amber-300, html.dark .text-amber-400, html.dark .text-yellow-400 { color: #d4bf96 !important; }
+html:not(.dark) .text-emerald-300, html:not(.dark) .text-emerald-400 { color: #35694f !important; }
+html:not(.dark) .text-rose-300, html:not(.dark) .text-rose-400, html:not(.dark) .text-red-400 { color: #91434e !important; }
+html:not(.dark) .text-amber-300, html:not(.dark) .text-amber-400, html:not(.dark) .text-yellow-400 { color: #795c24 !important; }
+html:is(.dark, .light) .bg-blue-600, html:is(.dark, .light) .bg-blue-500 { background-color: #4d6380 !important; }
+html:is(.dark, .light) .bg-emerald-600, html:is(.dark, .light) .bg-emerald-500 { background-color: #476e5b !important; }
+html:is(.dark, .light) .bg-rose-600, html:is(.dark, .light) .bg-rose-500 { background-color: #8b515b !important; }
+html:is(.dark, .light) button.bg-blue-600, html:is(.dark, .light) button.bg-blue-500,
+html:is(.dark, .light) button.bg-emerald-600, html:is(.dark, .light) button.bg-rose-600 { color: #fff !important; }
+html:is(.dark, .light) button.bg-blue-600 *, html:is(.dark, .light) button.bg-blue-500 *,
+html:is(.dark, .light) button.bg-emerald-600 *, html:is(.dark, .light) button.bg-rose-600 * { color: #fff !important; }
+html:is(.dark, .light) .border-slate-800, html:is(.dark, .light) .border-slate-800\/80, html:is(.dark, .light) .border-slate-800\/60,
+html:is(.dark, .light) .border-slate-800\/90, html:is(.dark, .light) .border-slate-700, html:is(.dark, .light) .border-slate-700\/80,
+html:is(.dark, .light) .border-slate-700\/50 { border-color: var(--panel-border) !important; }
+html input:not([type='checkbox']):not([type='radio']), html select, html textarea {
+    color: var(--panel-text) !important;
+    background-color: var(--panel-surface) !important;
+    border-color: var(--panel-border) !important;
+}
+html input::placeholder, html textarea::placeholder { color: var(--panel-muted) !important; opacity: 1; }
+html select option, html select optgroup { color: var(--panel-text) !important; background: var(--panel-surface) !important; }
+html input[type='checkbox'], html input[type='radio'] { accent-color: #607997; }
+html #liveLogTerminal { color: var(--panel-text) !important; background: var(--panel-bg) !important; }
+html [class*='shadow-blue-'], html [class*='shadow-purple-'], html [class*='shadow-emerald-'] { box-shadow: none !important; }
+html aside .animate-pulse { animation: none; }
+html:not(.dark) .bg-slate-950, html:not(.dark) .bg-slate-900,
+html:not(.dark) .bg-slate-900\/60, html:not(.dark) .bg-slate-800,
+html:not(.dark) .bg-slate-800\/60, html:not(.dark) .bg-slate-800\/80,
+html:not(.dark) .bg-slate-700 { background-color: var(--panel-inset) !important; }
+html:not(.dark) .bg-black\/20, html:not(.dark) .bg-black\/30,
+html:not(.dark) .bg-black\/40, html:not(.dark) .bg-black\/50 { background: var(--panel-inset) !important; }
+/* Selected utility accents retain subdued semantic hue, without neon fills. */
+html.dark .bg-blue-500\/10, html.dark .bg-blue-500\/15, html.dark .bg-blue-500\/20,
+html.dark .bg-purple-500\/10, html.dark .bg-purple-500\/15, html.dark .bg-cyan-500\/10 {
+    background-color: #252e3a !important;
+}
+html:not(.dark) .bg-blue-500\/10, html:not(.dark) .bg-blue-500\/15, html:not(.dark) .bg-blue-500\/20,
+html:not(.dark) .bg-purple-500\/10, html:not(.dark) .bg-purple-500\/15, html:not(.dark) .bg-cyan-500\/10 {
+    background-color: #e3e9f0 !important;
+}
+.keyword-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--panel-muted); font-size: 12px; }
+.quiet-button { border: 1px solid var(--panel-border); border-radius: 7px; padding: 7px 11px; background: var(--panel-surface); color: var(--panel-text); font-size: 12px; white-space: nowrap; }
+.quiet-button:hover { background: var(--panel-inset); }
+.quiet-button:disabled { opacity: .45; cursor: default; }
+.region-picker { border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; color: var(--panel-text); }
+.region-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.region-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--panel-border); border-radius: 6px; background: var(--panel-inset); color: var(--panel-text); padding: 5px 8px; font-size: 12px; }
+.region-search { width: 100%; min-width: 0; border: 1px solid var(--panel-border); border-radius: 7px; padding: 8px 10px; font-size: 13px; }
+.region-options { max-height: 176px; overflow-y: auto; margin-top: 8px; border: 1px solid var(--panel-border); border-radius: 7px; }
+.region-option { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 12px; cursor: pointer; }
+.region-option:hover { background: var(--panel-inset); }
+.region-code { margin-left: auto; color: var(--panel-muted); white-space: nowrap; font-size: 11px; }
+button:focus-visible, .region-option:focus-within { outline: 2px solid #7c91ab; outline-offset: 2px; }
+
+html:is(.dark, .light) .animate-pulse { animation: none; }
+html:is(.dark, .light) [class*="border-blue-500/"], html:is(.dark, .light) [class*="border-purple-500/"] { border-color: var(--panel-border) !important; }
+html:is(.dark, .light) .text-sky-300, html:is(.dark, .light) .text-sky-400 { color: var(--panel-accent) !important; }
+html.dark .text-amber-200 { color: #d4bf96 !important; }
+html:not(.dark) .text-amber-200 { color: #795c24 !important; }
+html.dark .bg-blue-600\/30 { background-color: #252e3a !important; }
+html:not(.dark) .bg-blue-600\/30 { background-color: #e3e9f0 !important; }
+html:is(.dark, .light) .bg-sky-600 { background-color: #4d6380 !important; }
+html:is(.dark, .light) a.panel-primary-link { color: #fff !important; }
+html:not(.dark) .bg-blue-600.font-bold { color: #fff !important; }

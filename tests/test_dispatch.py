@@ -386,3 +386,42 @@ def test_warming_does_not_reopen_profile_during_promo_cooldown():
     async def run():
         assert await TaskOrchestrator().get_or_create_profile('warming') is None
     asyncio.run(run())
+
+
+@pytest.mark.parametrize('raw',['[]','["-1"]','["x"]','{"213":true}','[true]',json.dumps(list(range(1,22)))])
+def test_invalid_multiple_regions_are_rejected_without_inserts(raw):
+    from app.main import app,AUTH_COOKIE,AUTH_SECRET
+    from fastapi.testclient import TestClient
+    pid=seed(0)
+    client=TestClient(app);client.cookies.set(AUTH_COOKIE,AUTH_SECRET)
+    r=client.post('/api/keywords',data={'project_id':pid,'keywords_text':'query','geo_regions':raw})
+    assert r.status_code==422
+    c=db.get_db();assert c.execute('select count(*) from keywords').fetchone()[0]==0;c.close()
+
+
+def test_five_regions_create_independently_dispatchable_keyword_pairs():
+    from app.main import app,AUTH_COOKIE,AUTH_SECRET
+    from fastapi.testclient import TestClient
+    pid=seed(0)
+    client=TestClient(app);client.cookies.set(AUTH_COOKIE,AUTH_SECRET)
+    codes=['213','2','43','54','65']
+    r=client.post('/api/keywords',data={'project_id':pid,'keywords_text':'first\nsecond | 7','daily_goal':3,'geo_regions':json.dumps(codes)})
+    assert r.status_code==200 and r.json()['added_count']==10
+    c=db.get_db();rows=c.execute('select keyword,geo_region,daily_goal from keywords').fetchall();c.close()
+    assert {(r['keyword'],r['geo_region']) for r in rows}=={(q,reg) for q in ['first','second'] for reg in codes}
+    assert all(r['daily_goal']==(3 if r['keyword']=='first' else 7) for r in rows)
+    tasks=[reserve_keyword(NOW) for _ in range(10)]
+    assert {t['geo_region'] for t in tasks}==set(codes)
+    assert len({t['id'] for t in tasks})==10
+
+
+def test_create_project_with_multiple_regions_and_legacy_single_region():
+    from app.main import app,AUTH_COOKIE,AUTH_SECRET
+    from fastapi.testclient import TestClient
+    client=TestClient(app);client.cookies.set(AUTH_COOKIE,AUTH_SECRET)
+    r=client.post('/api/projects',data={'name':'Multi','domain':'multi.test','keywords_text':'one','geo_regions':'["213","2","213"]'})
+    assert r.status_code==200
+    c=db.get_db();assert c.execute('select count(*) from keywords').fetchone()[0]==2;c.close()
+    r=client.post('/api/keywords',data={'project_id':r.json()['project_id'],'keyword':'legacy','geo_region':'43'})
+    assert r.status_code==200
+    c=db.get_db();assert c.execute("select geo_region from keywords where keyword='legacy'").fetchone()[0]=='43';c.close()

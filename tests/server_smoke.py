@@ -53,8 +53,15 @@ def main():
         assert status['clicks_today']==50
         assert sum(k['clicks_today'] for k in projects[0]['keywords'])==50
         assert status['report_timezone']=='Europe/Moscow'
+        from app.main import add_keywords
+        added=asyncio.run(add_keywords(project_id=pid,keyword=None,keywords_text='alpha\nbeta',
+            daily_goal=3,geo_region=None,brand_tail='',geo_regions='["213","2","43","54","65"]'))
+        assert added['added_count']==10
+        conn=db.get_db()
+        assert conn.execute("SELECT COUNT(DISTINCT geo_region) FROM keywords WHERE keyword='alpha'").fetchone()[0]==5
+        conn.close()
         print(json.dumps({'status':'PASS','round_unique_keys':50,'concurrent_unique_claims':50,
-                          'successes_visible_in_api':50,'production_database_used':False}))
+                          'successes_visible_in_api':50,'multi_region_rows':10,'production_database_used':False}))
 
 
 if __name__=='__main__':main()

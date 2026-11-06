@@ -20,6 +20,7 @@ from app.engine.orchestrator import orchestrator
 from app.engine.logger import live_logger
 from app.reporting import daily_log_metrics, day_bounds
 from app.dispatch import has_pending_keyword
+from app.regions import parse_regions
 from app.engine.telegram import (
     send_telegram_alert, send_daily_summary, telegram_bot_polling_loop, resolve_target_chat_id
 )
@@ -276,10 +277,12 @@ async def create_project(
     brand_tail: str = Form(""),
     use_brand_tail: int = Form(1),
     keywords_text: str = Form(""),
-    daily_goal: int = Form(10)
+    daily_goal: int = Form(10),
+    geo_regions: str = Form(None)
 ):
     domain_clean = domain.strip().lower().replace("https://", "").replace("http://", "").split("/")[0]
-    region_clean = default_region.strip() or "213"
+    regions = parse_regions(geo_regions, default_region)
+    region_clean = regions[0]
     brand_clean = brand_tail.strip()
     
     conn = get_db()
@@ -307,10 +310,11 @@ async def create_project(
                         goal = daily_goal
                 
                 if key_str:
-                    c.execute("""
-                        INSERT INTO keywords (project_id, keyword, daily_goal, geo_region, brand_tail)
-                        VALUES (?, ?, ?, ?, ?)
-                    """, (project_id, key_str, goal, region_clean, brand_clean))
+                    for region in regions:
+                        c.execute("""
+                            INSERT INTO keywords (project_id, keyword, daily_goal, geo_region, brand_tail)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (project_id, key_str, goal, region, brand_clean))
 
         conn.commit()
     except Exception as e:
@@ -355,22 +359,20 @@ async def add_keywords(
     keyword: str = Form(None),
     keywords_text: str = Form(None),
     daily_goal: int = Form(10),
-    geo_region: str = Form("213"),
-    brand_tail: str = Form("")
+    geo_region: str = Form(None),
+    brand_tail: str = Form(""),
+    geo_regions: str = Form(None)
 ):
+    # Validate before opening a connection or inserting any rows.
+    regions = parse_regions(geo_regions, geo_region) if geo_regions is not None or geo_region is not None else None
     conn = get_db()
     c = conn.cursor()
-    region_clean = geo_region.strip() or "213"
-    brand_clean = brand_tail.strip()
-    
-    # Check if project has default brand_tail if none specified
-    if not brand_clean:
-        c.execute("SELECT brand_tail, default_region FROM projects WHERE id = ?", (project_id,))
-        proj_row = c.fetchone()
-        if proj_row:
-            brand_clean = proj_row[0] or ""
-            if not geo_region or geo_region == "213":
-                region_clean = proj_row[1] or "213"
+    project = c.execute("SELECT brand_tail,default_region FROM projects WHERE id=?",(project_id,)).fetchone()
+    if not project:
+        conn.close()
+        return JSONResponse({"detail":"Проект не найден"},status_code=404)
+    regions = regions or parse_regions(None, project['default_region'])
+    brand_clean = brand_tail.strip() or project['brand_tail'] or ''
 
     items_to_add = []
     if keywords_text and keywords_text.strip():
@@ -393,14 +395,15 @@ async def add_keywords(
         items_to_add.append((keyword.strip(), daily_goal))
 
     for k_name, goal in items_to_add:
-        c.execute("""
-            INSERT INTO keywords (project_id, keyword, daily_goal, geo_region, brand_tail)
-            VALUES (?, ?, ?, ?, ?)
-        """, (project_id, k_name, goal, region_clean, brand_clean))
+        for region in regions:
+            c.execute("""
+                INSERT INTO keywords (project_id, keyword, daily_goal, geo_region, brand_tail)
+                VALUES (?, ?, ?, ?, ?)
+            """, (project_id, k_name, goal, region, brand_clean))
 
     conn.commit()
     conn.close()
-    return {"status": "ok", "added_count": len(items_to_add)}
+    return {"status": "ok", "added_count": len(items_to_add) * len(regions), "regions": regions}
 
 @app.post("/api/projects/{project_id}/toggle-promo")
 async def toggle_project_promo_api(project_id: int):
