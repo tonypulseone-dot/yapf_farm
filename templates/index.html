@@ -27,7 +27,7 @@
     <!-- Local Precompiled Tailwind CSS (Zero external latency, no JIT lag) -->
     <link rel="stylesheet" href="/static/tailwind.min.css?v=3">
     <link rel="stylesheet" href="/static/navigation.css?v=1">
-    <link rel="stylesheet" href="/static/panel-theme.css?v=1">
+    <link rel="stylesheet" href="/static/panel-theme.css?v=2">
     <!-- Local Font Awesome -->
     <link rel="stylesheet" href="/static/fontawesome.min.css?v=4">
     <!-- Local Alpine.js -->
@@ -838,299 +838,53 @@
         <!-- ========================================== -->
         <div x-show="currentTab === 'positions'" class="space-y-4 sm:space-y-6" x-cloak>
             
-            <!-- CARD 1: RUN CHECK FORM (MATCHING ALPINE SCREENSHOT 1) -->
-            <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-sm space-y-5">
-                <!-- Header -->
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-2xl bg-rose-600/90 text-white font-extrabold text-xl flex items-center justify-center shadow-lg shadow-rose-600/20 shrink-0">
-                            Я
-                        </div>
-                        <div>
-                            <h2 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                                Проверка позиций
-                            </h2>
-                            <p class="text-xs text-slate-400">Органическая выдача Яндекса, Топ-100</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2 self-start sm:self-auto">
-                        <button @click="openAddProject()" class="px-3.5 py-2 bg-dark-950 hover:bg-dark-850 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
-                            <i class="fa-solid fa-plus text-blue-400"></i> Добавить проект
-                        </button>
-                        <button @click="currentTab = 'manual'" class="px-3.5 py-2 bg-dark-950 hover:bg-dark-850 text-slate-400 hover:text-slate-200 border border-slate-800 rounded-xl text-xs font-medium flex items-center gap-1.5 transition">
-                            <i class="fa-regular fa-circle-question"></i> Инструкция
-                        </button>
-                    </div>
+            <section class="position-controls">
+                <div class="position-section-heading">
+                    <div><h2>Съём позиций</h2><p>Органическая выдача Яндекса · до 100 позиций</p></div>
+                    <button type="button" class="quiet-button" @click="openAddProject()">Добавить проект</button>
                 </div>
-
-                <!-- Form 2-Column Grid -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
-                    <!-- Left Column: Parameters -->
-                    <div class="lg:col-span-8 space-y-4">
-                        <div>
-                            <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">ПРОЕКТ</label>
-                            <select x-model="selectedPositionProjectId" @change="onPositionProjectChange()"
-                                    class="w-full bg-dark-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-200 focus:border-blue-500 focus:outline-none">
-                                <option value="">-- Выберите проект для проверки --</option>
-                                <template x-for="p in projects" :key="p.id">
-                                    <option :value="p.id" x-text="p.name + ' (' + p.domain + ')'"></option>
-                                </template>
-                            </select>
-                        </div>
-
-                        <!-- Multi-region Selector with dropdown & tags -->
-                        <div class="space-y-2">
-                            <div class="flex items-center justify-between">
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                                    Регионы проверки (выбор и добавление нескольких)
-                                </label>
-                                <span class="text-[11px] text-slate-400">
-                                    Выбрано регионов: <b class="text-blue-400 font-mono" x-text="positionRegions.length"></b>
-                                </span>
-                            </div>
-
-                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                                <select x-model="selectedRegionToAdd" class="flex-1 min-w-0 bg-dark-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-slate-200 focus:border-blue-500 focus:outline-none truncate">
-                                    <optgroup label="Популярные регионы">
-                                        <option value="213">Москва (LR 213)</option>
-                                        <option value="1">Московская область (LR 1)</option>
-                                        <option value="2">Санкт-Петербург (LR 2)</option>
-                                        <option value="10174">Ленинградская область (LR 10174)</option>
-                                        <option value="225">Вся Россия (LR 225)</option>
-                                    </optgroup>
-                                    <optgroup label="Города-миллионники РФ">
-                                        <option value="54">Екатеринбург (LR 54)</option>
-                                        <option value="65">Новосибирск (LR 65)</option>
-                                        <option value="43">Казань (LR 43)</option>
-                                        <option value="47">Нижний Новгород (LR 47)</option>
-                                        <option value="56">Челябинск (LR 56)</option>
-                                        <option value="66">Омск (LR 66)</option>
-                                        <option value="62">Красноярск (LR 62)</option>
-                                        <option value="35">Краснодар (LR 35)</option>
-                                        <option value="39">Ростов-на-Дону (LR 39)</option>
-                                        <option value="172">Уфа (LR 172)</option>
-                                        <option value="38">Волгоград (LR 38)</option>
-                                        <option value="63">Иркутск (LR 63)</option>
-                                        <option value="75">Владивосток (LR 75)</option>
-                                        <option value="77">Хабаровск (LR 77)</option>
-                                        <option value="239">Сочи (LR 239)</option>
-                                        <option value="193">Воронеж (LR 193)</option>
-                                        <option value="50">Пермь (LR 50)</option>
-                                        <option value="51">Самара (LR 51)</option>
-                                        <option value="194">Саратов (LR 194)</option>
-                                        <option value="197">Тюмень (LR 197)</option>
-                                    </optgroup>
-                                    <optgroup label="Страны и города СНГ">
-                                        <option value="157">Беларусь (Минск) (LR 157)</option>
-                                        <option value="162">Казахстан (Алматы) (LR 162)</option>
-                                        <option value="163">Казахстан (Астана) (LR 163)</option>
-                                        <option value="168">Узбекистан (Ташкент) (LR 168)</option>
-                                        <option value="149">Армения (Ереван) (LR 149)</option>
-                                        <option value="167">Азербайджан (Баку) (LR 167)</option>
-                                    </optgroup>
-                                </select>
-                                <div class="flex items-center gap-2">
-                                    <input type="text" x-model="selectedRegionToAdd" placeholder="LR" class="w-16 sm:w-20 bg-dark-950 border border-slate-800 rounded-xl px-2.5 py-2.5 text-xs sm:text-sm text-slate-200 font-mono text-center focus:border-blue-500 focus:outline-none shrink-0" title="Ручной ввод кода LR">
-                                    <button type="button" @click="addPositionRegion()" class="px-3.5 py-2.5 bg-dark-850 hover:bg-dark-800 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition">
-                                        <i class="fa-solid fa-plus text-blue-400"></i> Добавить
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Selected Regions Chips -->
-                            <div class="flex flex-wrap items-center gap-1.5 pt-1 min-h-[30px]">
-                                <template x-for="(rCode, idx) in positionRegions" :key="idx">
-                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-dark-850 text-slate-200 border border-slate-700/80 shadow-sm">
-                                        <i class="fa-solid fa-location-dot text-blue-400 text-[10px]"></i>
-                                        <span x-text="getRegionName(rCode) + ' (LR ' + rCode + ')'"></span>
-                                        <button type="button" @click="removePositionRegion(idx)" class="text-slate-400 hover:text-rose-400 ml-0.5" title="Удалить этот регион">
-                                            <i class="fa-solid fa-xmark text-[11px]"></i>
-                                        </button>
-                                    </span>
-                                </template>
-                                <template x-if="positionRegions.length > 1">
-                                    <button type="button" @click="positionRegions = []" class="text-[11px] text-slate-400 hover:text-rose-400 ml-1 underline">
-                                        Очистить все
-                                    </button>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- Device Selection & Fresh SERP -->
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                            <div>
-                                <label class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Устройство выдачи</label>
-                                <select x-model="positionCheckDevice"
-                                        class="w-full bg-dark-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:border-blue-500 focus:outline-none">
-                                    <option value="desktop">Десктоп</option>
-                                    <option value="android">Мобильные (Android)</option>
-                                </select>
-                            </div>
-                            <div class="flex items-center pt-5">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="checkbox" x-model="positionCheckFresh" class="rounded bg-dark-950 border-slate-700 text-blue-600 focus:ring-0">
-                                    <span class="text-xs font-medium text-slate-300">Свежая выдача (без кэша)</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right Column: Status & Normal-Sized Action Button -->
-                    <div class="lg:col-span-4 bg-dark-950 p-4 sm:p-5 rounded-2xl border border-slate-800/90 space-y-4">
-                        <div class="space-y-1.5 text-xs text-slate-300">
-                            <div class="flex items-center justify-between text-slate-400 text-xs">
-                                <span>Запросов к замеру:</span>
-                                <span class="font-mono font-bold text-blue-400" x-text="(positionsList.length * Math.max(1, positionRegions.length)) + ' шт.'"></span>
-                            </div>
-                            <div class="flex items-center justify-between text-slate-400 text-xs">
-                                <span>Глубина парсинга:</span>
-                                <span class="font-mono text-slate-300">ТОП-100 (10 страниц)</span>
-                            </div>
-                        </div>
-
-                        <!-- Progress Bar during active checking -->
-                        <div x-show="posProgress.is_running" class="space-y-1.5 pt-1" x-cloak>
-                            <div class="flex justify-between text-[11px] text-slate-400">
-                                <span x-text="posProgress.last_log"></span>
-                                <span class="font-mono font-bold text-blue-400" x-text="posProgress.percent + '%'"></span>
-                            </div>
-                            <div class="w-full h-1.5 bg-dark-900 rounded-full overflow-hidden border border-slate-800">
-                                <div class="h-full bg-blue-500 transition-all duration-300" :style="'width: ' + posProgress.percent + '%'"></div>
-                            </div>
-                        </div>
-
-                        <!-- Normal-Sized Button (Not full width!) -->
-                        <div class="pt-1">
-                            <template x-if="!selectedPositionProjectId">
-                                <button @click="openAddProject()" class="px-5 py-2.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-xl font-semibold text-xs transition flex items-center gap-2">
-                                    <i class="fa-solid fa-plus"></i> Сначала добавьте проект
-                                </button>
-                            </template>
-                            <template x-if="selectedPositionProjectId">
-                                <button @click="runPositionsCheck()" :disabled="posProgress.is_running || positionsList.length === 0"
-                                        class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl font-bold text-xs sm:text-sm shadow-md shadow-blue-600/25 flex items-center gap-2 active:scale-95 transition">
-                                    <template x-if="posProgress.is_running">
-                                        <span class="flex items-center gap-2">
-                                            <i class="fa-solid fa-spinner animate-spin"></i> Съем... (<span x-text="posProgress.current + '/' + posProgress.total"></span>)
-                                        </span>
-                                    </template>
-                                    <template x-if="!posProgress.is_running">
-                                        <span class="flex items-center gap-2">
-                                            <i class="fa-solid fa-crosshairs"></i> Запустить проверку
-                                        </span>
-                                    </template>
-                                </button>
-                            </template>
-                        </div>
-                    </div>
+                <div class="position-controlbar">
+                    <label class="position-project-field">Проект
+                        <select aria-label="Проект проверки" x-model="selectedPositionProjectId" @change="onPositionProjectChange()" x-effect="selectedPositionProjectId; $nextTick(() => { $el.value = String(selectedPositionProjectId || ''); })">
+                            <option value="">Все проекты · обзор</option>
+                            <template x-for="p in projects" :key="p.id"><option :value="String(p.id)" x-text="p.name + ' · ' + p.domain"></option></template>
+                        </select>
+                    </label>
+                    <label>Устройство
+                        <select x-model="positionCheckDevice" @change="loadPositionsData()"><option value="desktop">Десктоп</option><option value="android">Мобильные</option></select>
+                    </label>
+                    <button type="button" class="position-run-button bg-blue-600" @click="runPositionsCheck()" :disabled="!selectedPositionProjectId || posProgress.is_running || positionStarting[selectedPositionProjectId] || positionCheckCount() === 0">
+                        <span x-text="posProgress.is_running ? 'Проверяется · ' + posProgress.current + '/' + posProgress.total : 'Запустить проверку'"></span>
+                    </button>
                 </div>
+                <details class="position-options">
+                    <summary><span>Регионы и параметры</span><small x-text="positionRegions.map(code=>getRegionName(code)).join(', ')"></small></summary>
+                    <div class="region-chips mt-3"><template x-for="code in positionRegions" :key="code"><button class="region-chip" @click="positionRegions=positionRegions.filter(r=>r!==code)"><span x-text="getRegionName(code)"></span><span aria-hidden="true">×</span></button></template></div>
+                    <input class="region-search" type="search" x-model="positionRegionSearch" placeholder="Поиск города или кода LR" aria-label="Поиск региона проверки">
+                    <div class="region-options"><template x-for="r in keywordRegionOptions(positionRegionSearch)" :key="r.code"><label class="region-option"><input type="checkbox" :value="r.code" x-model="positionRegions" :disabled="positionRegions.length>=20 && !positionRegions.includes(r.code)"><span x-text="r.city"></span><span class="region-code" x-text="'LR '+r.code"></span></label></template></div>
+                    <div class="flex items-center gap-2 mt-2"><input type="text" inputmode="numeric" class="region-search" x-model="selectedRegionToAdd" placeholder="Код LR" aria-label="Регион проверки по коду"><button class="quiet-button" @click="addPositionRegion()">Добавить</button></div>
+                    <label class="position-fresh"><input type="checkbox" x-model="positionCheckFresh"> Свежая выдача без кэша</label>
+                </details>
+                <p class="position-status" x-show="posProgress.is_running" x-text="posProgress.last_log"></p>
+            </section>
+
+            <div class="position-jobs" x-show="positionJobs.length" x-cloak>
+                <template x-for="job in positionJobs" :key="job.run_id">
+                    <button type="button" class="position-job" @click="selectedPositionProjectId=String(job.project_id); onPositionProjectChange()" :class="{ 'is-selected': String(job.project_id) === String(selectedPositionProjectId) }">
+                        <strong x-text="job.project_name"></strong>
+                        <span x-text="job.is_running ? job.current + '/' + job.total : (job.status === 'interrupted' ? 'Прервано' : 'Завершено')"></span>
+                        <span x-show="job.errors" x-text="'Ошибок: ' + job.errors"></span>
+                    </button>
+                </template>
+                <p class="position-job-note">Проекты проверяются независимо. Одновременно работают не более двух проверочных браузеров.</p>
             </div>
 
-            <!-- CARD 2: MONITORING KPI OVERVIEW (MATCHING ALPINE SCREENSHOT 2) -->
-            <div class="bg-dark-900 border border-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
-                            <i class="fa-solid fa-chart-line text-sm"></i>
-                        </div>
-                        <div>
-                            <h3 class="font-bold text-sm sm:text-base text-white">Мониторинг позиций и ключевых показателей</h3>
-                            <p class="text-[11px] text-slate-400">Данные о позициях обновляются по мере использования ключевых запросов в продвижении и при съеме.</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2.5 self-start sm:self-auto">
-                        <button @click="loadPositionsData()" class="px-3 py-1.5 bg-dark-950 hover:bg-dark-850 text-slate-300 rounded-lg text-xs font-medium border border-slate-800 flex items-center gap-1.5 transition">
-                            <i class="fa-solid fa-arrows-rotate"></i> Обновить данные
-                        </button>
-                        <select x-model="selectedPositionProjectId" @change="onPositionProjectChange()"
-                                class="bg-dark-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none">
-                            <option value="">Все домены (общее)</option>
-                            <template x-for="p in projects" :key="p.id">
-                                <option :value="p.id" x-text="p.domain"></option>
-                            </template>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- KPI Tiles Grid (Custom Top Colors: Top 1 Blue, Top 2-10 Green, Top 11-30 Yellow, Top 31-50 Purple, Top 51+ Gray, Avg Cyan) -->
-                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5 sm:gap-3">
-                    <!-- 1. Domains -->
-                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-slate-800/80 text-slate-300 flex items-center justify-center text-xs shrink-0">
-                            <i class="fa-solid fa-globe"></i>
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ДОМЕНЫ</div>
-                            <div class="text-lg sm:text-xl font-bold font-mono text-slate-200 mt-0.5" x-text="positionsKpi.total_domains"></div>
-                        </div>
-                    </div>
-
-                    <!-- 2. Avg Position (CYAN / SKY - Not Green!) -->
-                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-xs shrink-0">
-                            <i class="fa-solid fa-chart-line"></i>
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">СРЕДНЯЯ</div>
-                            <div class="text-lg sm:text-xl font-bold font-mono text-cyan-400 mt-0.5" x-text="positionsKpi.avg_position || '0'"></div>
-                        </div>
-                    </div>
-
-                    <!-- 3. TOP 1 (BLUE) -->
-                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/25 flex items-center justify-center text-xs shrink-0 font-bold font-mono">
-                            #1
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 1</div>
-                            <div class="text-lg sm:text-xl font-bold font-mono text-blue-400 mt-0.5" x-text="positionsKpi.top_1 || 0"></div>
-                        </div>
-                    </div>
-
-                    <!-- 4. TOP 2-10 (GREEN / EMERALD) -->
-                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center justify-center text-[11px] shrink-0 font-bold font-mono">
-                            2-10
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 2-10</div>
-                            <div class="text-lg sm:text-xl font-bold font-mono text-emerald-400 mt-0.5" x-text="positionsKpi.top_2_10 || 0"></div>
-                        </div>
-                    </div>
-
-                    <!-- 5. TOP 11-30 (YELLOW / AMBER) -->
-                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/25 flex items-center justify-center text-[10px] shrink-0 font-bold font-mono">
-                            11-30
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 11-30</div>
-                            <div class="text-lg sm:text-xl font-bold font-mono text-amber-400 mt-0.5" x-text="positionsKpi.top_11_30 || 0"></div>
-                        </div>
-                    </div>
-
-                    <!-- 6. TOP 31-50 (PURPLE / LILAC) -->
-                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/25 flex items-center justify-center text-[10px] shrink-0 font-bold font-mono">
-                            31-50
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 31-50</div>
-                            <div class="text-lg sm:text-xl font-bold font-mono text-purple-400 mt-0.5" x-text="positionsKpi.top_31_50 || 0"></div>
-                        </div>
-                    </div>
-
-                    <!-- 7. TOP 51+ / OUT OF TOP (GRAY) -->
-                    <div class="bg-dark-950 p-3 rounded-xl border border-slate-800 flex items-center gap-2.5">
-                        <div class="w-8 h-8 rounded-lg bg-slate-800 text-slate-400 flex items-center justify-center text-xs shrink-0">
-                            <i class="fa-solid fa-arrow-down-wide-short"></i>
-                        </div>
-                        <div class="min-w-0">
-                            <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">ТОП 51+</div>
-                            <div class="text-lg sm:text-xl font-bold font-mono text-slate-400 mt-0.5" x-text="positionsKpi.top_51_plus ?? positionsKpi.out_of_top ?? 0"></div>
-                        </div>
-                    </div>
-                </div>
+            <div class="position-kpi-row">
+                <div><span>Запросов с замером</span><strong x-text="positionsKpi.tracked_queries || 0"></strong></div>
+                <div><span>Средняя позиция</span><strong x-text="positionsKpi.avg_position || '—'"></strong></div>
+                <div><span>В ТОП-10</span><strong x-text="positionsKpi.top_10 || 0"></strong></div>
+                <div><span>В ТОП-100</span><strong x-text="positionsKpi.top_100 || 0"></strong></div>
+                <div><span>Вне ТОП-100</span><strong x-text="positionsKpi.out_of_top || 0"></strong></div>
             </div>
 
             <!-- CARD 3: KEYWORDS & POSITIONS TABLE (MATCHING ALPINE SCREENSHOT 1) -->
@@ -1138,11 +892,8 @@
                 <!-- Header -->
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
                     <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20 font-bold">
-                            山
-                        </div>
                         <div>
-                            <h3 class="font-bold text-sm sm:text-base text-white">Запросы и позиции</h3>
+                            <h3 class="font-bold text-sm sm:text-base text-white">Динамика по дням</h3>
                             <p class="text-[11px] text-slate-400">История выбранного проекта</p>
                         </div>
                     </div>
@@ -1192,12 +943,12 @@
                 </div>
 
                 <!-- Empty State (Matching Alpine Screenshot 1) -->
-                <div x-show="!selectedPositionProjectId || positionsList.length === 0" class="py-12 text-center space-y-3" x-cloak>
+                <div x-show="positionTimeline.rows.length === 0" class="py-12 text-center space-y-3" x-cloak>
                     <div class="w-12 h-12 rounded-2xl bg-slate-800/60 text-slate-400 flex items-center justify-center mx-auto text-xl border border-slate-800">
                         <i class="fa-solid fa-database"></i>
                     </div>
                     <div class="text-sm font-medium text-slate-300">
-                        Добавьте сайт и запросы для первого замера.
+                        Нет запросов для выбранного проекта или фильтра.
                     </div>
                     <div>
                         <button @click="openAddProject()" class="text-xs text-blue-400 hover:text-blue-300 font-semibold underline underline-offset-4">
@@ -1206,115 +957,49 @@
                     </div>
                 </div>
 
-                <!-- Table with Queries & Positions -->
-                <div x-show="selectedPositionProjectId && positionsList.length > 0" class="overflow-x-auto" x-cloak>
-                    <table class="w-full text-left text-xs">
-                        <thead class="bg-dark-950 text-slate-400 font-semibold border-b border-slate-800">
+                <!-- Daily measurements: last successful measurement per Moscow day. -->
+                <div x-show="positionTimeline.rows.length" class="rank-history-scroll" x-cloak>
+                    <table class="rank-history-table">
+                        <thead>
                             <tr>
-                                <th class="py-3 px-4">Ключевой запрос</th>
-                                <th class="py-3 px-3">Регион</th>
-                                <th class="py-3 px-3">Устройство</th>
-                                <th class="py-3 px-3 text-center">Позиция Топ-100</th>
-                                <th class="py-3 px-3 text-center">Динамика</th>
-                                <th class="py-3 px-4">История (замеры)</th>
-                                <th class="py-3 px-4">Релевантная страница (URL)</th>
-                                <th class="py-3 px-3">Дата замера</th>
-                                <th class="py-3 px-3 text-right">Действие</th>
+                                <th class="rank-query-column">Запросы <span x-text="'(' + positionTimeline.rows.length + ')' "></span></th>
+                                <template x-for="day in positionTimeline.dates" :key="day.date">
+                                    <th class="rank-day-column">
+                                        <span x-text="day.label"></span>
+                                        <small x-text="day.measured ? 'ТОП-10 · ' + day.top10_percent + '%' : 'Нет замеров'"></small>
+                                    </th>
+                                </template>
+                                <th>Действия</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-slate-800/60">
-                            <template x-for="item in positionsList" :key="item.keyword_id">
-                                <tr class="hover:bg-dark-950/60 transition">
-                                    <td class="py-3 px-4 font-medium text-slate-200">
-                                        <span x-text="item.keyword"></span>
+                        <tbody>
+                            <template x-for="item in positionTimeline.rows" :key="item.row_id">
+                                <tr>
+                                    <td class="rank-query-column">
+                                        <span class="rank-query-label" x-text="item.keyword"></span>
+                                        <small x-text="getRegionName(item.region) + ' · ' + (item.device_type === 'android' ? 'Мобильные' : 'Десктоп')"></small>
                                     </td>
-                                    <td class="py-3 px-3 text-slate-400 font-mono text-[11px]" x-text="'LR: ' + item.region"></td>
-                                    <td class="py-3 px-3 text-slate-400 text-[11px]">
-                                        <span class="inline-flex items-center gap-1" :class="item.device_type === 'android' ? 'text-amber-400' : 'text-blue-400'">
-                                            <i :class="item.device_type === 'android' ? 'fa-solid fa-mobile-screen' : 'fa-solid fa-desktop'"></i>
-                                            <span x-text="item.device_type === 'android' ? 'Мобильный' : 'Десктоп'"></span>
-                                        </span>
-                                    </td>
-                                    <td class="py-3 px-3 text-center">
-                                        <!-- TOP 1: Blue -->
-                                        <template x-if="item.current_position === 1">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-blue-500/20 text-blue-400 border border-blue-500/40 shadow-sm">#1</span>
-                                        </template>
-                                        <!-- TOP 2-10: Green -->
-                                        <template x-if="item.current_position >= 2 && item.current_position <= 10">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm" x-text="'#' + item.current_position"></span>
-                                        </template>
-                                        <!-- TOP 11-30: Yellow -->
-                                        <template x-if="item.current_position >= 11 && item.current_position <= 30">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-amber-500/20 text-amber-400 border border-amber-500/40" x-text="'#' + item.current_position"></span>
-                                        </template>
-                                        <!-- TOP 31-50: Purple / Lilac -->
-                                        <template x-if="item.current_position >= 31 && item.current_position <= 50">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-bold text-xs bg-purple-500/20 text-purple-400 border border-purple-500/40" x-text="'#' + item.current_position"></span>
-                                        </template>
-                                        <!-- TOP 51-100: Gray -->
-                                        <template x-if="item.current_position >= 51 && item.current_position <= 100">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-mono font-semibold text-xs bg-slate-800 text-slate-400 border border-slate-700/80" x-text="'#' + item.current_position"></span>
-                                        </template>
-                                        <!-- OUT OF TOP (>100): Gray -->
-                                        <template x-if="item.current_position === 0 || item.current_position > 100">
-                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full font-mono text-[11px] bg-dark-950 text-slate-500 border border-slate-800">>100</span>
-                                        </template>
-                                    </td>
-                                    <td class="py-3 px-3 text-center font-mono font-bold text-xs">
-                                        <template x-if="item.diff > 0">
-                                            <span class="text-emerald-400" x-text="'▲ +' + item.diff"></span>
-                                        </template>
-                                        <template x-if="item.diff < 0">
-                                            <span class="text-rose-400" x-text="'▼ ' + item.diff"></span>
-                                        </template>
-                                        <template x-if="item.diff === 0">
-                                            <span class="text-slate-500">—</span>
-                                        </template>
-                                    </td>
-                                    <td class="py-3 px-4">
-                                        <!-- Mini Sparkline dots -->
-                                        <div class="flex items-center gap-1">
-                                            <template x-for="(sp, idx) in item.sparkline" :key="idx">
-                                                <span class="w-2 h-2 rounded-full inline-block"
-                                                      :title="sp.date + ': #' + (sp.pos > 0 ? sp.pos : '>100')"
-                                                      :class="sp.pos === 1 ? 'bg-blue-400' : (sp.pos >= 2 && sp.pos <= 10 ? 'bg-emerald-400' : (sp.pos >= 11 && sp.pos <= 30 ? 'bg-amber-400' : (sp.pos >= 31 && sp.pos <= 50 ? 'bg-purple-400' : 'bg-slate-600')))"></span>
-                                            </template>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 px-4 max-w-xs truncate font-mono text-[11px]">
-                                        <template x-if="item.target_url">
-                                            <a :href="item.target_url" target="_blank" class="text-blue-400 hover:underline" x-text="item.target_url"></a>
-                                        </template>
-                                        <template x-if="!item.target_url">
-                                            <span class="text-slate-500">—</span>
-                                        </template>
-                                    </td>
-                                    <td class="py-3 px-3 text-slate-400 text-[11px] font-mono whitespace-nowrap" x-text="item.last_checked"></td>
-                                    <td class="py-3 px-3 text-right whitespace-nowrap">
-                                        <button @click="checkSingleKeywordPos(item.keyword_id)" 
-                                                :disabled="posCheckingSingle === item.keyword_id"
-                                                class="p-1.5 text-slate-400 hover:text-blue-400 hover:bg-dark-850 rounded-lg transition"
-                                                title="Перепроверить позицию сейчас">
-                                            <i class="fa-solid fa-rotate" :class="posCheckingSingle === item.keyword_id ? 'fa-spin text-blue-400' : ''"></i>
-                                        </button>
-                                        <button @click="deleteKeyword(item.keyword_id)" 
-                                                class="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-dark-850 rounded-lg transition ml-1"
-                                                title="Удалить ключевой запрос из проекта">
-                                            <i class="fa-solid fa-trash-can"></i>
-                                        </button>
+                                    <template x-for="day in positionTimeline.dates" :key="day.date">
+                                        <td class="rank-value-cell" :class="rankCellClass(item.cells[day.date])" :title="rankCellTitle(item.cells[day.date],day.label)">
+                                            <span x-text="rankCellValue(item.cells[day.date])"></span>
+                                            <small class="rank-delta" x-show="item.cells[day.date] && ['up','down','entered','left'].includes(item.cells[day.date].direction)" x-text="rankCellDelta(item.cells[day.date])"></small>
+                                        </td>
+                                    </template>
+                                    <td>
+                                        <button type="button" class="quiet-button" @click="checkSingleKeywordPos(item.keyword_id, item.region, item.device_type)" :disabled="posCheckingSingle === item.keyword_id" title="Перепроверить этот запрос и регион"><i class="fa-solid fa-rotate"></i></button>
                                     </td>
                                 </tr>
                             </template>
                         </tbody>
                     </table>
                 </div>
+                <p class="rank-history-note">По дням МСК · последний замер за день · — нет данных · &gt;100 не найдено в проверенной выдаче. Ошибки и CAPTCHA не записываются как выпадение из ТОП-100.</p>
 
                 <!-- Footer Status Bar (Matching Alpine Screenshot 2) -->
                 <div class="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
                     <span class="flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse"></span>
-                        <span class="text-slate-400">Данные актуальны</span>
+                        <span class="text-slate-400">Сохранённые замеры</span>
                         <span class="text-slate-600">|</span>
                         <span>Последнее обновление: <span class="font-mono text-slate-300" x-text="positionsKpi.last_updated"></span></span>
                     </span>
@@ -3126,12 +2811,13 @@
                 // Positions (ТОП-100 Яндекс) state
                 selectedPositionProjectId: '',
                 positionRegions: ['213'],
+                positionRegionSearch: '',
                 selectedRegionToAdd: '213',
                 positionCheckRegion: '213',
                 positionCheckDevice: 'desktop',
                 positionCheckFresh: true,
                 positionDays: '7',
-                positionSort: 'best',
+                positionSort: 'alpha',
                 positionSearch: '',
                 positionsList: [],
                 positionsKpi: {
@@ -3150,6 +2836,18 @@
                     tracked_queries: 0,
                     last_updated: 'Нет замеров'
                 },
+                positionTimeline: { dates: [], rows: [] },
+                positionJobs: [],
+                positionStarting: {},
+                positionRegionsByProject: {},
+                positionSelectionId: '',
+                positionsRequestSeq: 0,
+                positionProgressSeq: 0,
+                rankCellValue(cell) { return !cell ? '—' : cell.position === 0 ? '>100' : cell.position; },
+                rankCellClass(cell) { return !cell ? 'is-empty' : ['up','entered'].includes(cell.direction) ? 'is-up' : ['down','left'].includes(cell.direction) ? 'is-down' : ''; },
+                rankCellDelta(cell) { if (!cell) return ''; const arrow=['up','entered'].includes(cell.direction) ? '▲' : '▼'; return arrow + (cell.diff === null ? '' : Math.abs(cell.diff)); },
+                rankCellTitle(cell, date) { return !cell ? date + ': замер не выполнялся' : date + ': ' + (cell.position === 0 ? '>100' : cell.position) + ' · ' + cell.checked_at + ' UTC'; },
+                positionCheckCount() { const p=this.projects.find(p=>String(p.id)===String(this.selectedPositionProjectId)); return p ? new Set((p.keywords || []).filter(k=>k.is_active !== 0).map(k=>k.keyword.trim())).size * Math.max(1,this.positionRegions.length) : 0; },
                 posCheckingSingle: null,
                 posProgress: {
                     is_running: false,
@@ -3760,10 +3458,12 @@
                 },
 
                 addPositionRegion() {
-                    const reg = String(this.selectedRegionToAdd || '').trim();
-                    if (reg && !this.positionRegions.includes(reg)) {
-                        this.positionRegions.push(reg);
-                    }
+                    const raw=String(this.selectedRegionToAdd || '').trim();
+                    if(!/^[0-9]{1,7}$/.test(raw) || Number(raw)<1){alert('Введите числовой код LR');return;}
+                    const reg=String(Number(raw));
+                    if(this.positionRegions.includes(reg))return;
+                    if(this.positionRegions.length>=20){alert('Можно выбрать до 20 регионов');return;}
+                    this.positionRegions=[...this.positionRegions,reg];
                 },
 
                 removePositionRegion(idx) {
@@ -3771,105 +3471,79 @@
                 },
 
                 async onOpenPositionsTab() {
-                    if (!this.selectedPositionProjectId && this.projects.length > 0) {
-                        this.selectedPositionProjectId = this.projects[0].id;
-                        const defReg = this.projects[0].default_region || '213';
-                        this.positionRegions = [defReg];
-                        this.selectedRegionToAdd = defReg;
-                        this.positionCheckRegion = defReg;
-                    }
-                    await this.loadPositionsData();
-                    await this.checkPositionsProgress();
+                    if (!this.selectedPositionProjectId && this.projects.length) this.selectedPositionProjectId=String(this.projects[0].id);
+                    await this.onPositionProjectChange();
+                    this.startPositionsProgressPolling();
                 },
 
                 async onPositionProjectChange() {
-                    if (this.selectedPositionProjectId) {
-                        const p = this.projects.find(x => String(x.id) === String(this.selectedPositionProjectId));
-                        if (p && p.default_region) {
-                            this.positionRegions = [p.default_region];
-                            this.selectedRegionToAdd = p.default_region;
-                            this.positionCheckRegion = p.default_region;
-                        }
+                    if (this.positionSelectionId && this.positionSelectionId !== String(this.selectedPositionProjectId)) this.positionRegionsByProject[this.positionSelectionId]=[...this.positionRegions];
+                    this.positionSelectionId=String(this.selectedPositionProjectId || '');
+                    const p=this.projects.find(p=>String(p.id)===this.positionSelectionId);
+                    if (p) {
+                        this.positionRegions=this.positionRegionsByProject[this.positionSelectionId] || this.projectRegionCodes(p);
+                        if (!this.positionRegions.length) this.positionRegions=[p.default_region || '213'];
+                        this.selectedRegionToAdd=this.positionRegions[0];
                     }
-                    await this.loadPositionsData();
+                    this.posProgress={is_running:false,current:0,total:0,percent:0,errors:0,last_log:'Загрузка состояния'};
+                    this.positionsList=[];this.positionTimeline={dates:[],rows:[]};
+                    await Promise.all([this.loadPositionsData(),this.checkPositionsProgress()]);
                 },
 
                 async loadPositionsData() {
+                    const seq=++this.positionsRequestSeq, pid=String(this.selectedPositionProjectId || ''), device=this.positionCheckDevice || 'desktop';
+                    const query=(pid?'project_id='+pid+'&':'')+'days='+(this.positionDays || 7)+'&device_type='+device+'&sort='+this.positionSort+'&search='+encodeURIComponent(this.positionSearch || '');
                     try {
-                        const pid = this.selectedPositionProjectId || '';
-                        const [kpiRes, dataRes] = await Promise.all([
-                            fetch('/api/positions/kpi' + (pid ? '?project_id=' + pid : '')),
-                            fetch('/api/positions/data?project_id=' + pid + '&days=' + (this.positionDays || 7) + '&sort=' + (this.positionSort || 'best') + '&search=' + encodeURIComponent(this.positionSearch || ''))
-                        ]);
-                        if (kpiRes.ok) {
-                            this.positionsKpi = await kpiRes.json();
-                        }
-                        if (dataRes.ok) {
-                            this.positionsList = await dataRes.json();
-                        }
-                    } catch(e) {
-                        console.error('Error loading positions:', e);
-                    }
+                        const [kr,tr]=await Promise.all([
+                            fetch('/api/positions/kpi?device_type='+device+(pid?'&project_id='+pid:'')),
+                            fetch('/api/positions/timeline?'+query)]);
+                        const [k,t]=await Promise.all([kr.ok?kr.json():null,tr.ok?tr.json():null]);
+                        if (seq!==this.positionsRequestSeq || pid!==String(this.selectedPositionProjectId || '') || device!==this.positionCheckDevice) return;
+                        if(k)this.positionsKpi=k;if(t){this.positionTimeline=t;this.positionsList=t.rows;}
+                    } catch(e) { console.error('Error loading positions',e); }
                 },
 
                 async runPositionsCheck() {
-                    if (!this.selectedPositionProjectId) return;
+                    const pid=String(this.selectedPositionProjectId || '');
+                    if (!pid || this.positionStarting[pid]) return;
+                    this.positionStarting={...this.positionStarting,[pid]:true};
+                    const regions=[...(this.positionRegions.length?this.positionRegions:[this.selectedRegionToAdd || '213'])];
                     try {
-                        const regionsToSend = this.positionRegions.length > 0 ? this.positionRegions : [this.selectedRegionToAdd || '213'];
-                        const res = await fetch('/api/positions/check', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                project_id: parseInt(this.selectedPositionProjectId),
-                                regions: regionsToSend,
-                                region: regionsToSend[0],
-                                device_type: this.positionCheckDevice || 'desktop',
-                                fresh: !!this.positionCheckFresh
-                            })
-                        });
-                        const data = await res.json();
-                        if (data.status === 'ok') {
-                            this.startPositionsProgressPolling();
-                        } else {
-                            alert(data.message || 'Ошибка запуска съема позиций');
-                        }
-                    } catch(e) {
-                        alert('Ошибка запроса: ' + e.message);
-                    }
+                        const res=await fetch('/api/positions/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project_id:Number(pid),regions,device_type:this.positionCheckDevice || 'desktop',fresh:!!this.positionCheckFresh})});
+                        const data=await res.json();
+                        if(data.status==='ok'){this.startPositionsProgressPolling();await this.checkPositionsProgress();}
+                        else alert(data.message || data.detail || 'Ошибка запуска проверки');
+                    } catch(e) { alert('Ошибка запуска: '+e.message); }
+                    finally { this.positionStarting={...this.positionStarting,[pid]:false}; }
                 },
 
                 startPositionsProgressPolling() {
-                    if (this.posProgressTimer) clearInterval(this.posProgressTimer);
-                    this.posProgress.is_running = true;
-                    this.posProgress.percent = 5;
-                    this.posProgress.last_log = 'Инициализация парсера выдачи...';
-                    this.posProgressTimer = setInterval(async () => {
-                        await this.checkPositionsProgress();
-                    }, 2000);
+                    if (this.posProgressTimer) return;
+                    this.posProgressTimer=setInterval(()=>this.checkPositionsProgress(),2000);
                 },
 
                 async checkPositionsProgress() {
+                    const seq=++this.positionProgressSeq, pid=String(this.selectedPositionProjectId || '');
                     try {
-                        const res = await fetch('/api/positions/progress');
-                        if (res.ok) {
-                            const data = await res.json();
-                            this.posProgress = data;
-                            if (!data.is_running && this.posProgressTimer) {
-                                clearInterval(this.posProgressTimer);
-                                this.posProgressTimer = null;
-                                await this.loadPositionsData();
-                            }
-                        }
-                    } catch(e) {}
+                        const res=await fetch('/api/positions/progress'+(pid?'?project_id='+pid:''));if(!res.ok)return;
+                        const data=await res.json();if(seq!==this.positionProgressSeq)return;this.positionJobs=(data.jobs || []).filter(j=>j.is_running || String(j.project_id)===String(this.selectedPositionProjectId));
+                        if(pid!==String(this.selectedPositionProjectId || ''))return;
+                        const changed=this.posProgress.current!==data.current || this.posProgress.is_running!==data.is_running;
+                        this.posProgress=data;
+                        if(changed && pid)await this.loadPositionsData();
+                    } catch(e) { console.error('Progress unavailable',e); }
                 },
 
-                async checkSingleKeywordPos(keywordId) {
+                async checkSingleKeywordPos(keywordId, region, device) {
                     this.posCheckingSingle = keywordId;
                     try {
                         const res = await fetch('/api/positions/check-keyword/' + keywordId, {
-                            method: 'POST'
+                            method: 'POST', headers: {'Content-Type':'application/json'},
+                            body: JSON.stringify({region: region || '213', device_type: device || this.positionCheckDevice})
                         });
                         if (res.ok) {
+                            const result=await res.json();
+                            if(result.data && result.data.status && result.data.status !== 'ok') alert(result.data.details || 'Замер не выполнен');
                             await this.loadPositionsData();
                         }
                     } catch(e) {
@@ -3882,7 +3556,7 @@
                 exportPositionsCSV() {
                     const pid = this.selectedPositionProjectId || '';
                     const days = this.positionDays || 7;
-                    window.location.href = '/api/positions/export?project_id=' + pid + '&days=' + days;
+                    window.location.href = '/api/positions/timeline-export?' + (pid ? 'project_id=' + pid + '&' : '') + 'days=' + days + '&device_type=' + this.positionCheckDevice + '&search=' + encodeURIComponent(this.positionSearch || '');
                 },
 
                 openAddKeywordModalForPos() {

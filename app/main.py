@@ -525,46 +525,48 @@ async def test_telegram_alert_api():
 # ==========================================
 
 @app.get("/api/positions/kpi")
-async def get_positions_kpi_api(project_id: int = None):
-    from app.database import get_positions_kpi
-    return get_positions_kpi(project_id)
+async def get_positions_kpi_api(project_id: int = None, device_type: str = "desktop"):
+    from app.position_history import position_timeline, timeline_kpi
+    return timeline_kpi(position_timeline(project_id,31,device_type=device_type))
 
 @app.get("/api/positions/data")
 async def get_positions_data_api(project_id: int = None, days: int = 7, search: str = "", sort: str = "best"):
     from app.database import get_project_positions
     return get_project_positions(project_id=project_id, days=days, search=search, sort_by=sort)
 
+@app.get("/api/positions/timeline")
+async def get_positions_timeline_api(project_id: int = None, days: int = 7, search: str = "", device_type: str = "desktop", sort: str = "alpha"):
+    from app.position_history import position_timeline
+    if device_type not in ('desktop','android'):
+        return JSONResponse({'detail':'Неизвестное устройство'},status_code=422)
+    return position_timeline(project_id,days,search,device_type,sort)
+
 @app.get("/api/positions/progress")
-async def get_positions_progress_api():
+async def get_positions_progress_api(project_id: int = None):
     from app.engine.position_checker import position_checker
-    return position_checker.get_progress()
+    return position_checker.get_progress(project_id)
 
 @app.post("/api/positions/check")
 async def run_positions_check_api(data: dict):
     from app.engine.position_checker import position_checker
-    project_id = int(data.get("project_id", 0))
+    try:
+        project_id = int(data.get("project_id", 0))
+    except (ValueError,TypeError):
+        return JSONResponse({'message':'Некорректный проект'},status_code=422)
     regions = data.get("regions", [])
-    region = data.get("region", "").strip() or None
+    region = str(data.get("region") or "").strip() or None
     device_type = data.get("device_type", "desktop")
     fresh = bool(data.get("fresh", True))
     
     if not project_id:
         return {"status": "error", "message": "Выберите проект для проверки"}
         
-    if position_checker.is_checking:
-        return {"status": "busy", "message": "Проверка позиций уже выполняется"}
-        
-    asyncio.create_task(position_checker.check_project_positions(
-        project_id=project_id,
-        region=region,
-        regions=regions,
-        device_type=device_type,
-        fresh=fresh
-    ))
-    return {"status": "ok", "message": "Съем позиций запущен в фоне"}
+    return await position_checker.start_project_check(
+        project_id=project_id, region=region, regions=regions,
+        device_type=device_type, fresh=fresh)
 
 @app.post("/api/positions/check-keyword/{keyword_id}")
-async def check_single_keyword_api(keyword_id: int):
+async def check_single_keyword_api(keyword_id: int, data: dict = None):
     from app.engine.position_checker import position_checker
     from app.database import get_db
     conn = get_db()
@@ -581,11 +583,30 @@ async def check_single_keyword_api(keyword_id: int):
     if not proj:
         return {"status": "error", "message": "Проект не найден"}
         
+    data=data or {}
+    geo=parse_regions(None,str(data.get('region') or kw_dict.get('geo_region') or '213'))[0]
+    device=data.get('device_type','desktop')
+    if device not in ('desktop','android'):
+        return JSONResponse({'detail':'Неизвестное устройство'},status_code=422)
     res = await position_checker.check_single_keyword(
-        keyword_row=kw_dict,
-        project_row=dict(proj)
-    )
+        keyword_row=kw_dict, project_row=dict(proj), region=geo, device_type=device)
     return {"status": "ok", "data": res}
+
+@app.get("/api/positions/timeline-export")
+async def export_position_timeline(project_id: int = None, days: int = 7, device_type: str = 'desktop', search: str = ''):
+    from app.position_history import position_timeline
+    from fastapi.responses import StreamingResponse
+    import csv,io
+    data=position_timeline(project_id,days,search,device_type)
+    def safe(value):
+        value=str(value)
+        return "'"+value if value.lstrip().startswith(('=','+','-','@')) else value
+    stream=io.StringIO();writer=csv.writer(stream,delimiter=';')
+    writer.writerow(['Запрос','Домен','Регион','Устройство']+[d['label'] for d in data['dates']])
+    for row in data['rows']:
+        writer.writerow([safe(row['keyword']),safe(row['domain']),row['region'],row['device_type']]+[
+            ('>100' if row['cells'][d['date']]['position']==0 else row['cells'][d['date']]['position']) if d['date'] in row['cells'] else '' for d in data['dates']])
+    return StreamingResponse(iter(['\ufeff'+stream.getvalue()]),media_type='text/csv; charset=utf-8',headers={'Content-Disposition':'attachment; filename="positions_daily.csv"'})
 
 @app.get("/api/positions/export")
 async def export_positions_csv_api(project_id: int = None, days: int = 7):

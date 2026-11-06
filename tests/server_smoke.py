@@ -60,8 +60,28 @@ def main():
         conn=db.get_db()
         assert conn.execute("SELECT COUNT(DISTINCT geo_region) FROM keywords WHERE keyword='alpha'").fetchone()[0]==5
         conn.close()
+        from app.engine.position_checker import PositionCheckerManager
+        from unittest.mock import AsyncMock
+        conn=db.get_db()
+        ids=[]
+        for n in (1,2):
+            project=conn.execute('INSERT INTO projects(name,domain) VALUES(?,?)',('smoke'+str(n),'smoke'+str(n)+'.test')).lastrowid
+            conn.execute('INSERT INTO keywords(project_id,keyword) VALUES(?,?)',(project,'only-query'));ids.append(project)
+        conn.commit();conn.close()
+        async def parallel_checks():
+            manager=PositionCheckerManager();started=set();gate=asyncio.Event()
+            async def fake(kw,project,*args,**kwargs):
+                started.add(project['id']);await gate.wait();return {'status':'ok','position':12}
+            manager.check_single_keyword=fake
+            await asyncio.gather(*(manager.start_project_check(pid) for pid in ids))
+            await asyncio.sleep(0)
+            assert started==set(ids)
+            assert (await manager.start_project_check(ids[0]))['status']=='busy'
+            gate.set();await asyncio.gather(*manager._tasks.values())
+            assert all(not j['is_running'] and j['current']==1 for j in manager.jobs.values())
+        asyncio.run(parallel_checks())
         print(json.dumps({'status':'PASS','round_unique_keys':50,'concurrent_unique_claims':50,
-                          'successes_visible_in_api':50,'multi_region_rows':10,'production_database_used':False}))
+                          'successes_visible_in_api':50,'multi_region_rows':10,'parallel_position_projects':2,'production_database_used':False}))
 
 
 if __name__=='__main__':main()

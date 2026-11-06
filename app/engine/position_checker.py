@@ -2,6 +2,7 @@ import asyncio
 import logging
 import random
 import re
+import uuid
 import urllib.parse
 from datetime import datetime, timedelta
 from playwright.async_api import async_playwright
@@ -13,28 +14,46 @@ from app.engine.proxy import parse_proxy_line
 from app.engine.captcha import handle_yandex_checkbox_captcha
 from app.engine.human import human_scroll, human_mouse_move
 from app.engine.logger import live_logger
+from app.engine.promo import target_host_matches
+from app.regions import parse_regions
+import json
 
 logger = logging.getLogger("position_checker")
 
 class PositionCheckerManager:
     def __init__(self):
-        self.is_checking = False
-        self.current_project_id = None
-        self.progress = {
-            "is_running": False,
-            "project_id": None,
-            "project_name": "",
-            "current": 0,
-            "total": 0,
-            "last_log": "Проверка не запущена",
-            "percent": 0
-        }
-        self._lock = asyncio.Lock()
+        self.jobs = {}
+        self._tasks = {}
+        self._lock = None
+        self._browser_slots = None
 
-    def get_progress(self):
-        return self.progress
+    def _project_lock(self):
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
-    async def check_single_keyword(self, keyword_row: dict, project_row: dict, region: str = None, device_type: str = "desktop", max_pages: int = 10) -> dict:
+    def _slots(self):
+        if self._browser_slots is None:
+            self._browser_slots = asyncio.Semaphore(2)
+        return self._browser_slots
+
+    @property
+    def is_checking(self):
+        return any(j['is_running'] for j in self.jobs.values())
+
+    def get_progress(self, project_id=None):
+        jobs = [dict(j) for j in self.jobs.values()]
+        job = self.jobs.get(project_id) if project_id else next((j for j in jobs if j['is_running']), None)
+        result = dict(job) if job else {'is_running': False, 'project_id': project_id,
+            'current': 0, 'total': 0, 'percent': 0, 'errors': 0, 'last_log': 'Проверка не запущена'}
+        return {**result, 'jobs': jobs, 'active_jobs': sum(j['is_running'] for j in jobs), 'browser_limit': 2}
+
+    async def check_single_keyword(self, keyword_row, project_row, region=None, device_type='desktop', max_pages=10, fresh=True):
+        async with self._slots():
+            return await asyncio.wait_for(self._check_single_keyword_impl(
+                keyword_row, project_row, region, device_type, max_pages, fresh), timeout=300)
+
+    async def _check_single_keyword_impl(self, keyword_row: dict, project_row: dict, region: str = None, device_type: str = "desktop", max_pages: int = 10, fresh: bool = True) -> dict:
         """
         Parses Yandex SERP up to Top-100 to find the domain's organic position.
         """
@@ -69,7 +88,8 @@ class PositionCheckerManager:
                 has_touch=is_mobile,
                 proxy=proxy_config,
                 locale="ru-RU",
-                timezone_id="Europe/Moscow"
+                timezone_id="Europe/Moscow",
+                extra_http_headers={"Cache-Control":"no-cache", "Pragma":"no-cache"} if fresh else {}
             )
             page = await context.new_page()
 
@@ -87,29 +107,23 @@ class PositionCheckerManager:
                         await asyncio.sleep(random.uniform(1.2, 2.0))
                     except Exception as ge:
                         logger.warning(f"Error loading SERP page {p_idx}: {ge}")
-                        break
+                        return {"status":"error", "position":None, "details":"Ошибка загрузки поисковой выдачи"}
 
                     # Check SmartCaptcha
                     if "showcaptcha" in page.url or await page.query_selector(".CheckboxCaptcha, #smartcaptcha-anchor"):
                         solved = await handle_yandex_checkbox_captcha(page)
                         if not solved:
                             logger.warning("SmartCaptcha could not be solved during position check.")
-                            break
+                            return {"status":"captcha", "position":None, "details":"Проверка остановлена CAPTCHA"}
                         await asyncio.sleep(2.0)
+                        if "showcaptcha" in page.url or await page.query_selector(".CheckboxCaptcha, #smartcaptcha-anchor"):
+                            return {"status":"captcha", "position":None, "details":"CAPTCHA не пройдена"}
 
                     # Extract organic results
                     # Exclude ads and direct
                     items = await page.query_selector_all("li.serp-item, div.serp-item")
                     if not items:
-                        # Fallback links
-                        links = await page.query_selector_all("a.organic__url, a.Link_theme_normal")
-                        for l in links:
-                            current_organic_rank += 1
-                            href = await l.get_attribute("href") or ""
-                            if domain in href.lower():
-                                found_pos = current_organic_rank
-                                found_url = href
-                                break
+                        return {"status":"error", "position":None, "details":"Нет распознанных результатов выдачи"}
                     else:
                         for item in items:
                             # Check if item is advertisement
@@ -128,7 +142,7 @@ class PositionCheckerManager:
 
                             current_organic_rank += 1
                             href = await link.get_attribute("href") or ""
-                            if domain in href.lower():
+                            if target_host_matches(href, domain):
                                 found_pos = current_organic_rank
                                 found_url = href
                                 break
@@ -157,6 +171,7 @@ class PositionCheckerManager:
             )
 
             return {
+                "status": "ok",
                 "keyword_id": keyword_row["id"],
                 "keyword": keyword,
                 "position": found_pos,
@@ -165,86 +180,84 @@ class PositionCheckerManager:
                 "device_type": device_type
             }
 
-    async def check_project_positions(self, project_id: int, region: str = None, regions: list = None, device_type: str = "desktop", fresh: bool = True):
-        """
-        Runs check across all keywords in a project in the background for one or multiple regions.
-        """
-        async with self._lock:
-            if self.is_checking:
-                return {"status": "busy", "message": "Проверка уже выполняется"}
-
-            conn = get_db()
-            c = conn.cursor()
-            c.execute("SELECT * FROM projects WHERE id = ?", (project_id,))
-            proj = c.fetchone()
-            if not proj:
+    async def start_project_check(self, project_id, region=None, regions=None, device_type='desktop', fresh=True):
+        if device_type not in ('desktop', 'android'):
+            return {'status':'error','message':'Неизвестный тип устройства'}
+        async with self._project_lock():
+            if self.jobs.get(project_id, {}).get('is_running'):
+                return {'status':'busy','message':'Этот проект уже проверяется','project_id':project_id}
+            if sum(j['is_running'] for j in self.jobs.values()) >= 20:
+                return {'status':'busy','message':'Уже запущено 20 заданий'}
+            conn=get_db()
+            try:
+                row=conn.execute('SELECT * FROM projects WHERE id=?',(project_id,)).fetchone()
+                if not row:
+                    return {'status':'error','message':'Проект не найден'}
+                project=dict(row)
+                keywords=[dict(r) for r in conn.execute('SELECT * FROM keywords WHERE project_id=? AND is_active=1 ORDER BY id',(project_id,))]
+            finally:
                 conn.close()
-                return {"status": "error", "message": "Проект не найден"}
-            proj_dict = dict(proj)
-
-            c.execute("SELECT * FROM keywords WHERE project_id = ? AND is_active = 1", (project_id,))
-            keywords = [dict(r) for r in c.fetchall()]
-            conn.close()
-
             if not keywords:
-                return {"status": "error", "message": "В проекте нет активных ключевых запросов"}
+                return {'status':'error','message':'В проекте нет активных запросов'}
+            selected = regions or (str(region).split(',') if region else sorted({k.get('geo_region') or project.get('default_region') or '213' for k in keywords}))
+            targets=parse_regions(json.dumps(selected))
+            # Duplicate query rows from multi-region imports must not multiply checks.
+            grouped={}
+            for kw in keywords:
+                grouped.setdefault(kw['keyword'].strip(), []).append(kw)
+            plan=[]
+            for reg in targets:
+                for candidates in grouped.values():
+                    kw=next((k for k in candidates if str(k.get('geo_region'))==reg), candidates[0])
+                    plan.append((kw,reg))
+            job={'run_id':uuid.uuid4().hex,'project_id':project_id,'project_name':project['name'],
+                 'is_running':True,'status':'queued','current':0,'total':len(plan),'percent':0,
+                 'errors':0,'regions':targets,'device_type':device_type,
+                 'last_log':'Задание создано','started_at':datetime.utcnow().isoformat(), 'finished_at':None}
+            self.jobs[project_id]=job
+            task=asyncio.create_task(self._run_project(job,project,plan,device_type,fresh))
+            self._tasks[project_id]=task
+            # Keep completed progress, but bound the in-memory history.
+            for pid in list(self.jobs):
+                if len(self.jobs)<=50: break
+                if not self.jobs[pid]['is_running'] and pid!=project_id:
+                    self.jobs.pop(pid);self._tasks.pop(pid,None)
+            return {'status':'ok','message':'Проверка добавлена','project_id':project_id,'run_id':job['run_id']}
 
-            # Build list of target regions
-            target_regions = []
-            if regions and isinstance(regions, list):
-                target_regions = [str(r).strip() for r in regions if str(r).strip()]
-            elif region:
-                target_regions = [r.strip() for r in str(region).split(",") if r.strip()]
-            
-            if not target_regions:
-                target_regions = [proj_dict.get("default_region") or "213"]
-
-            total_checks = len(keywords) * len(target_regions)
-            self.is_checking = True
-            self.current_project_id = project_id
-            self.progress = {
-                "is_running": True,
-                "project_id": project_id,
-                "project_name": proj_dict["name"],
-                "current": 0,
-                "total": total_checks,
-                "last_log": f"Старт съема позиций для проекта «{proj_dict['name']}» ({len(keywords)} ключей x {len(target_regions)} рег.)...",
-                "percent": 0
-            }
-
-        regions_str = ", ".join(target_regions)
-        live_logger.add("INFO", "checker", f"Запущен съем позиций для проекта «{proj_dict['name']}» ({len(keywords)} ключей, регионы: [{regions_str}], Топ-100)")
-
+    async def _run_project(self, job, project, plan, device_type, fresh):
+        live_logger.add('INFO','checker',f"Начат съём проекта «{project['name']}»: {len(plan)} замеров")
         try:
-            step_count = 0
-            for reg in target_regions:
-                for kw in keywords:
-                    step_count += 1
-                    self.progress["current"] = step_count
-                    self.progress["percent"] = round((step_count / total_checks) * 100, 1)
-                    self.progress["last_log"] = f"Проверка [{step_count}/{total_checks}] (LR {reg}): «{kw['keyword']}»"
-                    
-                    try:
-                        res = await self.check_single_keyword(
-                            keyword_row=kw,
-                            project_row=proj_dict,
-                            region=reg,
-                            device_type=device_type
-                        )
-                        pos_label = f"#{res['position']}" if res["position"] > 0 else ">100"
-                        live_logger.add("SUCCESS", "checker", f"Позиция определена (LR {reg}): «{kw['keyword']}» -> {pos_label}")
-                    except Exception as e:
-                        logger.error(f"Error checking position for '{kw['keyword']}' (LR {reg}): {e}")
-                        live_logger.add("ERROR", "checker", f"Ошибка проверки «{kw['keyword']}» (LR {reg}): {e}")
-
-                    await asyncio.sleep(random.uniform(2.0, 4.0))
-
-            live_logger.add("SUCCESS", "checker", f"Съем позиций для проекта «{proj_dict['name']}» полностью завершен!")
-            self.progress["last_log"] = "Проверка завершена успешно!"
-
+            job['status']='running'
+            for kw,reg in plan:
+                job['last_log']=f"LR {reg}: {kw['keyword']}"
+                try:
+                    result=await self.check_single_keyword(kw,project,reg,device_type,fresh=fresh)
+                    if result.get('status','ok')!='ok':
+                        job['errors']+=1
+                        job['last_log']=result.get('details','Проверка не выполнена')
+                        live_logger.add('WARN','checker',job['last_log'])
+                except Exception as error:
+                    job['errors']+=1
+                    job['last_log']='Ошибка замера: '+type(error).__name__
+                    logger.warning('Position check failed for project %s: %s',project['id'],type(error).__name__)
+                job['current']+=1
+                job['percent']=round(job['current']/job['total']*100,1)
+                if job['current']<job['total']:
+                    await asyncio.sleep(random.uniform(2,4))
+            job['status']='completed_with_errors' if job['errors'] else 'completed'
+            job['last_log']=f"Завершено: {job['current']}, ошибок: {job['errors']}"
+        except asyncio.CancelledError:
+            job['status']='interrupted';job['last_log']='Проверка прервана'
+            raise
         finally:
-            self.is_checking = False
-            self.progress["is_running"] = False
+            job['is_running']=False
+            job['finished_at']=datetime.utcnow().isoformat()
+
+    async def check_project_positions(self, project_id, region=None, regions=None, device_type='desktop', fresh=True):
+        result=await self.start_project_check(project_id,region,regions,device_type,fresh)
+        if result['status']=='ok':
+            await self._tasks[project_id]
+        return result
 
     async def daily_scheduler_loop(self):
         """
@@ -271,9 +284,7 @@ class PositionCheckerManager:
                     proj_ids = [r["id"] for r in c.fetchall()]
                     conn.close()
 
-                    for pid in proj_ids:
-                        await self.check_project_positions(pid)
-                        await asyncio.sleep(10)
+                    await asyncio.gather(*(self.check_project_positions(pid) for pid in proj_ids))
 
                     from app.database import set_setting
                     set_setting("position_last_auto_check_date", today_str)
