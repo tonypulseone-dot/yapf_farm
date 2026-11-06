@@ -109,6 +109,14 @@ def finish_attempt(task, profile, result, now=None):
              profile.get('name',''),profile.get('device_type',''),task.get('geo_region','213'),
              result.get('position',0),status,result.get('details',''),stamp,
              task['id'],task['project_id'],task['_attempt_id']))
+        cooldown = _number('profile_min_interval_sec', 1200, 0, 86400)
+        if status == 'captcha':
+            cooldown = max(cooldown, _number('profile_captcha_cooldown_sec', 3600, 0, 86400))
+        available = utc_text(now + timedelta(seconds=cooldown))
+        if profile.get('id'):
+            conn.execute('''UPDATE profiles SET last_used_at=?,
+                promo_available_at=CASE WHEN promo_available_at > ? THEN promo_available_at ELSE ? END
+                WHERE id=?''', (stamp,available,available,profile['id']))
         if status == 'success':
             today = business_date(now)
             conn.execute('''UPDATE keywords SET clicks_today=

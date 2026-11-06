@@ -111,6 +111,18 @@ def init_db():
     c.execute("CREATE INDEX IF NOT EXISTS idx_pos_time ON positions_history(checked_at)")
 
     # Additive migration: retain all existing logs and counters.
+    c.execute('CREATE INDEX IF NOT EXISTS idx_click_profile_time ON click_logs(profile_name,timestamp)')
+    profile_columns = {r['name'] for r in c.execute('PRAGMA table_info(profiles)')}
+    if 'promo_available_at' not in profile_columns:
+        c.execute('ALTER TABLE profiles ADD COLUMN promo_available_at TEXT')
+    # Recover actual past usage, including failed attempts. Do not invent clicks.
+    c.execute('''UPDATE profiles SET last_used_at=(
+        SELECT MAX(timestamp) FROM click_logs WHERE profile_name=profiles.name)
+        WHERE EXISTS (SELECT 1 FROM click_logs WHERE profile_name=profiles.name)
+        AND (last_used_at IS NULL OR last_used_at < (
+            SELECT MAX(timestamp) FROM click_logs WHERE profile_name=profiles.name))''')
+    c.execute('''UPDATE profiles SET promo_available_at=datetime(last_used_at,'+20 minutes')
+        WHERE promo_available_at IS NULL AND last_used_at IS NOT NULL''')
     log_columns = {r['name'] for r in c.execute('PRAGMA table_info(click_logs)')}
     for column, kind in [('keyword_id', 'INTEGER'), ('project_id', 'INTEGER'), ('attempt_id', 'TEXT')]:
         if column not in log_columns:
@@ -213,6 +225,8 @@ def init_db():
         "captcha_max_consecutive_attempts": "3",
         "captcha_max_session_attempts": "10",
         "captcha_timeout_seconds": "60",
+        "profile_min_interval_sec": "1200",
+        "profile_captcha_cooldown_sec": "3600",
         "captcha_action": "abort",
         "captcha_distort_coords": "1",
 

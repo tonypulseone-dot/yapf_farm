@@ -89,10 +89,13 @@ class TaskOrchestrator:
 
         # 2. If we need Ready profile for promotion (prefer 80% Android / 20% Desktop)
         if target_status == "ready":
+            interval = max(0, min(86400, int(get_setting("profile_min_interval_sec", "1200"))))
+            conn.execute('BEGIN IMMEDIATE')
             preferred_dtype = "android" if random.random() < 0.80 else "desktop"
             query_preferred = f"""
                 SELECT * FROM profiles 
                 WHERE status = 'ready' AND device_type = ? AND id NOT IN ({placeholders})
+                  AND (promo_available_at IS NULL OR promo_available_at <= datetime('now'))
                 ORDER BY last_used_at ASC NULLS FIRST 
                 LIMIT 1
             """
@@ -102,14 +105,22 @@ class TaskOrchestrator:
                 query_fallback = f"""
                     SELECT * FROM profiles 
                     WHERE status = 'ready' AND id NOT IN ({placeholders})
+                      AND (promo_available_at IS NULL OR promo_available_at <= datetime('now'))
                     ORDER BY last_used_at ASC NULLS FIRST 
                     LIMIT 1
                 """
                 c.execute(query_fallback, busy_ids if busy_ids else ())
                 row = c.fetchone()
             if row:
+                conn.execute("UPDATE profiles SET last_used_at=CURRENT_TIMESTAMP, "
+                             "promo_available_at=datetime('now',?) WHERE id=?",
+                             (f'+{interval} seconds', row['id']))
+                conn.commit()
                 conn.close()
                 return dict(row)
+            conn.commit()
+            conn.close()
+            return None
 
         # 3. Target profile pool limit and resting cooldown (Alpine: 3-8 hours = 180-480 min random)
         c.execute("SELECT COUNT(*) as cnt FROM profiles")
@@ -128,6 +139,7 @@ class TaskOrchestrator:
             SELECT * FROM profiles 
             WHERE status IN ('new', 'warming') 
               AND id NOT IN ({placeholders})
+              AND (promo_available_at IS NULL OR promo_available_at <= datetime('now'))
               AND (last_warmed_at IS NULL OR last_warmed_at <= datetime('now', '-' || ? || ' minutes'))
             ORDER BY cycles_completed ASC, last_warmed_at ASC NULLS FIRST 
             LIMIT 1
@@ -150,6 +162,7 @@ class TaskOrchestrator:
             SELECT * FROM profiles 
             WHERE status = 'ready' 
               AND id NOT IN ({placeholders})
+              AND (promo_available_at IS NULL OR promo_available_at <= datetime('now'))
               AND (
                   (last_used_at IS NOT NULL AND last_used_at <= datetime('now', '-48 hours'))
                   OR (last_used_at IS NULL AND last_warmed_at <= datetime('now', '-48 hours'))
@@ -168,6 +181,7 @@ class TaskOrchestrator:
         query = f"""
             SELECT * FROM profiles 
             WHERE id NOT IN ({placeholders})
+              AND (promo_available_at IS NULL OR promo_available_at <= datetime('now'))
               AND (last_warmed_at IS NULL OR last_warmed_at <= datetime('now', '-' || ? || ' minutes'))
             ORDER BY last_warmed_at ASC NULLS FIRST, cycles_completed ASC
             LIMIT 1
@@ -182,6 +196,7 @@ class TaskOrchestrator:
         query = f"""
             SELECT * FROM profiles 
             WHERE id NOT IN ({placeholders})
+              AND (promo_available_at IS NULL OR promo_available_at <= datetime('now'))
             ORDER BY last_warmed_at ASC NULLS FIRST 
             LIMIT 1
         """

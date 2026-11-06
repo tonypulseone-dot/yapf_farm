@@ -331,3 +331,58 @@ def test_checkbox_click_does_not_prove_captcha_was_resolved():
         assert result['status']=='captcha'
         page.query_selector_all.assert_not_awaited()
     asyncio.run(run())
+
+
+def seed_ready_profiles(n=3):
+    c=db.get_db()
+    for i in range(n):
+        c.execute("INSERT INTO profiles(name,user_data_dir,fingerprint,status,device_type) VALUES(?,?,?,'ready','android')",(f'p{i}',f'offline-{i}','{}'))
+    c.commit();c.close()
+
+
+def test_ready_profile_claims_rotate_without_success_and_respect_cooldown():
+    from app.engine.orchestrator import TaskOrchestrator
+    seed_ready_profiles(20)
+    async def run():
+        o=TaskOrchestrator()
+        profiles=await asyncio.gather(*(o.get_or_create_profile('ready') for _ in range(20)))
+        assert len({p['id'] for p in profiles})==20
+        assert await o.get_or_create_profile('ready') is None
+        c=db.get_db()
+        assert c.execute('SELECT count(*) FROM profiles WHERE last_used_at IS NOT NULL AND promo_available_at > CURRENT_TIMESTAMP').fetchone()[0]==20
+        c.close()
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize('status',['error','not_found','captcha','cancelled','success'])
+def test_every_attempt_updates_profile_use_and_cooldown(status):
+    seed(1);seed_ready_profiles(1)
+    task=reserve_keyword(NOW)
+    finish(task,status,NOW)
+    c=db.get_db();row=c.execute('select * from profiles').fetchone();c.close()
+    assert row['last_used_at']==utc_text(NOW)
+    delay=3600 if status=='captcha' else 1200
+    assert row['promo_available_at']==utc_text(NOW+timedelta(seconds=delay))
+    assert row['total_clicks']==(1 if status=='success' else 0)
+
+
+def test_history_migration_recovers_failed_profile_use_without_clicks():
+    seed_ready_profiles(1)
+    c=db.get_db()
+    c.execute("INSERT INTO click_logs(keyword,target_url,domain,status,profile_name,timestamp) VALUES('q','','example.test','error','p0',?)",(utc_text(NOW),))
+    c.commit();c.close();db.init_db();db.init_db()
+    c=db.get_db();row=c.execute('select * from profiles').fetchone()
+    assert row['last_used_at']==utc_text(NOW)
+    assert row['promo_available_at']==utc_text(NOW+timedelta(minutes=20))
+    assert row['total_clicks']==0
+    assert c.execute('select count(*) from click_logs').fetchone()[0]==1
+    c.close()
+
+
+def test_warming_does_not_reopen_profile_during_promo_cooldown():
+    from app.engine.orchestrator import TaskOrchestrator
+    seed_ready_profiles(1);db.set_setting('target_profiles_count',1)
+    c=db.get_db();c.execute("UPDATE profiles SET promo_available_at=datetime('now','+1 hour')");c.commit();c.close()
+    async def run():
+        assert await TaskOrchestrator().get_or_create_profile('warming') is None
+    asyncio.run(run())
