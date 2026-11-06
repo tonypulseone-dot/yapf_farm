@@ -19,6 +19,7 @@ from app.engine.promo import run_promotion_click
 from app.engine.telegram import notify_click_success, notify_captcha, send_telegram_alert
 from app.engine.logger import live_logger
 from app.dispatch import has_pending_keyword, reserve_keyword, finish_attempt
+from app.farm_health import record_warm_event
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("orchestrator")
@@ -223,6 +224,9 @@ class TaskOrchestrator:
         profile = None
         keyword_task = None
         result_recorded = False
+        warm_attempted = False
+        warm_event_done = False
+        warm_cancelled = False
         error_details = 'Worker interrupted before completion'
         try:
             if get_setting("is_running", "0") != "1":
@@ -248,6 +252,7 @@ class TaskOrchestrator:
                 return
 
             profile_id = profile["id"]
+            warm_attempted = task_type == "warming"
             self.busy_profiles.add(profile_id)
             self.stats["active_threads"] = self.stats.get("active_threads", 0) + 1
             thread_counted = True
@@ -291,6 +296,7 @@ class TaskOrchestrator:
                 loop = asyncio.get_running_loop()
                 await asyncio.sleep(max(0.0, self._next_browser_launch - loop.time()))
                 if get_setting("is_running", "0") != "1":
+                    warm_cancelled = True
                     return
                 interval = max(0.0, float(get_setting("thread_launch_interval_sec", "1.5")))
                 self._next_browser_launch = loop.time() + interval
@@ -367,26 +373,30 @@ class TaskOrchestrator:
                         ok = await run_warming_cycle(page, profile["id"], profile["name"])
                         
                         conn = get_db()
-                        c = conn.cursor()
-                        # Сохраняем статус 'ready' для готовых профилей при догреве
-                        new_status = 'ready' if profile.get('status') == 'ready' else 'warming'
-                        if ok:
-                            c.execute("""
-                                UPDATE profiles 
-                                SET cycles_completed = cycles_completed + 1, 
-                                    last_warmed_at = CURRENT_TIMESTAMP, 
-                                    status = ?
-                                WHERE id = ?
-                            """, (new_status, profile["id"]))
-                        else:
-                            c.execute("""
-                                UPDATE profiles 
-                                SET last_warmed_at = CURRENT_TIMESTAMP, 
-                                    status = ?
-                                WHERE id = ?
-                            """, (new_status, profile["id"]))
-                        conn.commit()
-                        conn.close()
+                        try:
+                            c = conn.cursor()
+                            # Сохраняем статус 'ready' для готовых профилей при догреве
+                            new_status = 'ready' if profile.get('status') == 'ready' else 'warming'
+                            if ok:
+                                c.execute("""
+                                    UPDATE profiles
+                                    SET cycles_completed = cycles_completed + 1,
+                                        last_warmed_at = CURRENT_TIMESTAMP,
+                                        status = ?
+                                    WHERE id = ?
+                                """, (new_status, profile["id"]))
+                            else:
+                                c.execute("""
+                                    UPDATE profiles
+                                    SET last_warmed_at = CURRENT_TIMESTAMP,
+                                        status = ?
+                                    WHERE id = ?
+                                """, (new_status, profile["id"]))
+                            record_warm_event(conn, profile['id'], ok)
+                            conn.commit()
+                            warm_event_done = True
+                        finally:
+                            conn.close()
                     finally:
                         self.stats["warming_active"] = max(0, self.stats["warming_active"] - 1)
 
@@ -396,6 +406,9 @@ class TaskOrchestrator:
                     pass
                 live_logger.add("INFO", profile["name"], f"Браузерная сессия закрыта, профиль сохранен (цикл завершен)")
 
+        except asyncio.CancelledError:
+            warm_cancelled = True
+            raise
         except Exception as e:
             logger.error(f"Worker task error: {e}")
             err_str = str(e)[:120]
@@ -403,6 +416,16 @@ class TaskOrchestrator:
             self.stats["last_log"] = f"Ошибка потока: {err_str}"
             live_logger.add("ERROR", profile["name"] if profile else "worker", f"Ошибка потока: {err_str}")
         finally:
+            if warm_attempted and not warm_event_done and profile_id is not None:
+                try:
+                    journal = get_db()
+                    try:
+                        record_warm_event(journal, profile_id, False, status='cancelled' if warm_cancelled else 'error')
+                        journal.commit()
+                    finally:
+                        journal.close()
+                except Exception:
+                    logger.warning('Unable to record warming outcome')
             if keyword_task is not None and not result_recorded:
                 try:
                     finish_attempt(keyword_task, profile or {},

@@ -80,8 +80,11 @@ def main():
             gate.set();await asyncio.gather(*manager._tasks.values())
             assert all(not j['is_running'] and j['current']==1 for j in manager.jobs.values())
         asyncio.run(parallel_checks())
+        from app.main import get_farm_health_api
+        health=asyncio.run(get_farm_health_api())
+        assert 'advice' in health and 'warming_24h' in health
         print(json.dumps({'status':'PASS','round_unique_keys':50,'concurrent_unique_claims':50,
-                          'successes_visible_in_api':50,'multi_region_rows':10,'parallel_position_projects':2,'production_database_used':False}))
+                          'successes_visible_in_api':50,'multi_region_rows':10,'parallel_position_projects':2,'farm_health':True,'production_database_used':False}))
 
 
 if __name__=='__main__':main()

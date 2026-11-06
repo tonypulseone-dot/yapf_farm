@@ -242,6 +242,11 @@ async def test_telegram_alert():
     )
     return status
 
+@app.get("/api/farm/health")
+async def get_farm_health_api():
+    from app.farm_health import farm_health
+    return farm_health()
+
 @app.get("/api/projects")
 async def list_projects():
     conn = get_db()

@@ -244,6 +244,9 @@ def init_db():
     for k, v in defaults.items():
         c.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (k, v))
 
+    from app.farm_health import initialize_health_schema
+    initialize_health_schema(conn)
+
     # Link old rows only when a domain/query pair identifies exactly one keyword.
     c.execute('''UPDATE click_logs SET keyword_id=(
         SELECT MIN(k.id) FROM keywords k JOIN projects p ON p.id=k.project_id

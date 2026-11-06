@@ -182,3 +182,43 @@ html:is(.dark,.light) button.bg-blue-600:disabled, html:is(.dark,.light) button.
     .rank-history-table .rank-query-column { min-width: 190px; max-width: 220px; }
     .rank-day-column, .rank-value-cell { min-width: 106px; }
 }
+/* Slightly stronger accents, while keeping the surfaces quiet. */
+html.dark { --panel-bg:#131821; --panel-surface:#1d2531; --panel-inset:#263140; --panel-text:#f3f6fc; --panel-muted:#b7c3d5; --panel-border:#43546a; --panel-accent:#8ab8ff; }
+html:not(.dark) { --panel-bg:#eef1f6; --panel-surface:#fff; --panel-inset:#f0f3f8; --panel-text:#1d293b; --panel-muted:#515e72; --panel-border:#c5cddd; --panel-accent:#1e5fa8; }
+html body, html .font-mono:not(code):not(pre):not(textarea) { font-feature-settings:'tnum' 1, 'zero' 0; }
+html:is(.dark,.light) .bg-blue-600, html:is(.dark,.light) .bg-blue-500 { background-color:#0066cc !important; }
+html.dark .bg-blue-600, html.dark .bg-blue-500 { background-color:#286ac8 !important; }
+html:not(.dark) button.app-nav-item.is-active { background:#e6effc !important; color:#1c4c94 !important; border-color:#b7cdec !important; }
+html.dark button.app-nav-item.is-active { background:#283a52; border-color:#557dad; color:#e4efff; }
+html.dark .text-emerald-300, html.dark .text-emerald-400 { color:#82d4ad !important; }
+html.dark .text-rose-300, html.dark .text-rose-400 { color:#ff9ba7 !important; }
+html.dark .text-amber-300, html.dark .text-amber-400 { color:#efc16d !important; }
+html:not(.dark) .text-emerald-300, html:not(.dark) .text-emerald-400 { color:#18734c !important; }
+html:not(.dark) .text-rose-300, html:not(.dark) .text-rose-400 { color:#bd3544 !important; }
+html:not(.dark) .text-amber-300, html:not(.dark) .text-amber-400 { color:#946200 !important; }
+html:not(.dark) .rank-value-cell.is-up { background:#e0f5e8; }
+html:not(.dark) .rank-value-cell.is-down { background:#ffe7e8; }
+.farm-health-card { display:grid; grid-template-columns:minmax(290px,1fr) minmax(300px,1.2fr); gap:22px; padding:18px 20px; border:1px solid var(--panel-border); border-radius:14px; background:var(--panel-surface); }
+.farm-health-card.is-warning { border-left:3px solid #ae7b22; }
+.farm-health-card.is-critical { border-left:3px solid #bd3544; }
+.farm-health-heading { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.farm-health-heading h2 { font-size:14px; font-weight:600; }
+.health-state { font-size:11px; padding:3px 7px; border-radius:5px; background:var(--panel-inset); color:var(--panel-muted); }
+.health-state.is-warning { background:#fff1ce; color:#795016; }
+.health-state.is-critical { background:#ffe0e4; color:#a0273d; }
+.health-state.is-ok { background:#ddf4e7; color:#21613e; }
+html.dark .health-state.is-warning { background:#493b24; color:#f2d08d; }
+html.dark .health-state.is-critical { background:#4d2934; color:#ffb9c7; }
+html.dark .health-state.is-ok { background:#203d30; color:#a8e1bf; }
+.farm-health-metrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:14px; }
+.farm-health-metrics strong { display:block; font-size:22px; line-height:1.2; font-weight:500; font-variant-numeric:tabular-nums; }
+.farm-health-metrics span { display:block; font-size:11px; line-height:1.4; margin-top:5px; color:var(--panel-muted); }
+.health-number-warning { color:#946200; }
+html.dark .health-number-warning { color:#efc16d; }
+.farm-health-footnote { font-size:11px; line-height:1.45; color:var(--panel-muted); margin-top:12px; }
+.farm-health-advice { display:flex; flex-direction:column; gap:10px; }
+.farm-health-tip { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.farm-health-tip h3 { font-size:12px; font-weight:600; }
+.farm-health-tip p { font-size:11px; line-height:1.45; color:var(--panel-muted); margin-top:3px; }
+.farm-health-tip .quiet-button { font-size:11px; padding:6px 9px; }
+@media(max-width:900px) { .farm-health-card { grid-template-columns:1fr; gap:16px; } }
